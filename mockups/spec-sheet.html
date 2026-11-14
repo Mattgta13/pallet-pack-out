@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pack-Out Spec Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1c2430;
+    --ink-2: #4a5566;
+    --ink-3: #8a94a3;
+    --rule: #d9dee5;
+    --panel: #f5f7f9;
+    --accent: #1f4e79;
+    --kraft: #d9b382;
+    --kraft-dark: #b38a57;
+    --kraft-side: #c79e6b;
+    --rot: #5b8fc7;
+    --rot-dark: #3d6e9f;
+    --rot-side: #4b7fb5;
+    --pallet: #8a6b4a;
+    --pallet-dark: #6b5138;
+    --ok: #2e7d4f;
+    --warn: #b26b00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #e6e9ed;
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 10.5px;
+  }
+  .num, td.n, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  /* Letter page: 8.5in x 11in */
+  .page {
+    width: 8.5in; min-height: 11in;
+    margin: 24px auto; padding: 0.45in 0.5in 0.4in;
+    background: #fff;
+    box-shadow: 0 2px 18px rgba(0,0,0,.12);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; box-shadow: none; }
+    @page { size: letter; margin: 0; }
+  }
+
+  /* Header */
+  header { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 46px; height: 46px; border: 1.5px dashed var(--ink-3); border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); font-size: 8px; text-align: center; line-height: 1.1; }
+  .doc-type { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+  h1 { margin: 2px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  .meta { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-size: 9.5px; }
+  .meta dt { color: var(--ink-2); text-align: right; }
+  .meta dd { margin: 0; font-weight: 600; }
+
+  /* Headline numbers */
+  .headline { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .headline > div { padding: 9px 12px; border-right: 1px solid var(--rule); }
+  .headline > div:last-child { border-right: 0; }
+  .headline .lbl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-2); font-weight: 600; }
+  .headline .big { font-size: 24px; font-weight: 700; line-height: 1.15; margin-top: 2px; }
+  .headline .big { white-space: nowrap; }
+  .headline .big small { font-size: 11px; font-weight: 500; color: var(--ink-2); }
+  .headline .tihi .big { font-size: 22px; }
+  .headline .tihi { background: var(--accent); color: #fff; }
+  .headline .tihi .lbl { color: #c9d9ea; }
+  .headline .tihi .big small { color: #c9d9ea; }
+  .eq { font-weight: 400; opacity: .7; margin: 0 4px; }
+
+  /* Panels */
+  .row { display: grid; gap: 12px; }
+  .row.views { grid-template-columns: 1.05fr 1fr; }
+  .row.data { grid-template-columns: 1.25fr 1fr; }
+  .row.foot { grid-template-columns: 1fr 1fr; }
+  .panel { border: 1px solid var(--rule); border-radius: 6px; padding: 9px 11px; position: relative; }
+  .panel h2 { margin: 0 0 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2); font-weight: 600; display: flex; justify-content: space-between; }
+  .panel h2 .tag { letter-spacing: .04em; text-transform: none; font-weight: 500; color: var(--ink-3); }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { font-family: "IBM Plex Sans", sans-serif; }
+  svg .dim { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--ink); font-weight: 500; }
+
+  .layers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .layer-cap { text-align: center; font-size: 9px; color: var(--ink-2); margin-top: 3px; font-weight: 500; }
+  .legend { display: flex; gap: 12px; justify-content: center; margin-top: 6px; font-size: 9px; color: var(--ink-2); flex-wrap: wrap; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.25); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 3.5px 6px; text-align: right; border-bottom: 1px solid var(--rule); }
+  th { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+  th:first-child, td:first-child { text-align: left; }
+  td:first-child { color: var(--ink-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.hl { background: #eef3f9; font-weight: 600; }
+
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; }
+  .kv dt { color: var(--ink-2); }
+  .kv dd { margin: 0; text-align: right; font-weight: 500; }
+
+  /* Limit bars */
+  .limit { margin-bottom: 7px; }
+  .limit .top { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .limit .top b { font-weight: 600; }
+  .bar { height: 7px; background: var(--panel); border-radius: 4px; overflow: hidden; border: 1px solid var(--rule); }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .bar.dim > i { background: var(--ink-3); }
+  .controls { margin-top: 4px; padding: 5px 7px; background: var(--panel); border-radius: 4px; font-size: 9.5px; }
+
+  .eff { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .eff .card { background: var(--panel); border-radius: 5px; padding: 6px 8px; }
+  .eff .v { font-size: 17px; font-weight: 700; }
+  .eff .d { font-size: 8.5px; color: var(--ink-2); line-height: 1.3; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 4px 8px; border-radius: 999px; background: #e3f2e9; color: var(--ok); font-weight: 600; font-size: 9.5px; }
+  .badge::before { content: "✓"; font-weight: 700; }
+
+  .notes { min-height: 54px; color: var(--ink-2); line-height: 1.45; }
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+  .sign div { border-top: 1px solid var(--ink); padding-top: 3px; font-size: 8.5px; color: var(--ink-2); display: flex; justify-content: space-between; margin-top: 26px; }
+
+  footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 8.5px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brand">
+      <div class="logo">YOUR<br>LOGO</div>
+      <div>
+        <div class="doc-type">Pallet Pack-Out Specification</div>
+        <h1>Sample Shipper — 16.20 × 11.40 × 9.10 in</h1>
+      </div>
+    </div>
+    <dl class="meta">
+      <dt>Spec #</dt><dd class="mono">PPO-0001</dd>
+      <dt>SKU / Item</dt><dd class="mono">SAMPLE-100</dd>
+      <dt>Revision</dt><dd class="mono">A</dd>
+      <dt>Date</dt><dd class="mono">11/13/2026</dd>
+    </dl>
+  </header>
+
+  <section class="headline">
+    <div class="tihi">
+      <div class="lbl">Pack-out (Ti × Hi)</div>
+      <div class="big num">10 <span class="eq">×</span> 5 <span class="eq">=</span> 50 <small>cases / pallet</small></div>
+    </div>
+    <div>
+      <div class="lbl">Load size (L × W × H)</div>
+      <div class="big num" style="font-size:16px;margin-top:7px">48.60 × 39.00 × 49.50<small> in</small></div>
+    </div>
+    <div>
+      <div class="lbl">Gross weight</div>
+      <div class="big num">315 <small>lb</small></div>
+    </div>
+    <div>
+      <div class="lbl">Total units</div>
+      <div class="big num">600 <small>@ 12/cs</small></div>
+    </div>
+  </section>
+
+  <section class="row views">
+    <div class="panel">
+      <h2>Unit load <span class="tag">3D view · fork entry on 40" ends</span></h2>
+      <svg id="iso" viewBox="0 0 400 330"></svg>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--kraft)"></i>Case lengthwise</span>
+        <span><i class="sw" style="background:var(--rot)"></i>Case turned 90°</span>
+        <span><i class="sw" style="background:var(--pallet)"></i>Pallet</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Layer pattern <span class="tag">Two-block · interlocked</span></h2>
+      <div class="layers">
+        <div><svg id="layerOdd" viewBox="0 0 200 200"></svg><div class="layer-cap">Layers 1, 3, 5</div></div>
+        <div><svg id="layerEven" viewBox="0 0 200 200"></svg><div class="layer-cap">Layers 2, 4 (turned 180°)</div></div>
+      </div>
+      <div class="legend">
+        <span>▶ Fork entry</span>
+        <span><i class="sw" style="background:none;border:1.5px dashed var(--ink-2)"></i>Pallet 48 × 40</span>
+        <span>Seam overlap between layers: <b class="num">71%</b></span>
+      </div>
+      <svg id="caseIso" viewBox="0 0 400 110" style="margin-top:6px"></svg>
+    </div>
+  </section>
+
+  <section class="row data">
+    <div class="panel">
+      <h2>Dimensions &amp; weights</h2>
+      <table>
+        <thead><tr><th></th><th>Case ID</th><th>Case OD</th><th>Unit load<br>(incl. pallet)</th></tr></thead>
+        <tbody>
+          <tr><td>Length</td><td class="n">15.888 in</td><td class="n">16.200 in</td><td class="n hl">48.60 in</td></tr>
+          <tr><td>Width</td><td class="n">11.087 in</td><td class="n">11.400 in</td><td class="n hl">39.00 in</td></tr>
+          <tr><td>Height</td><td class="n">8.475 in</td><td class="n">9.100 in</td><td class="n hl">49.50 in</td></tr>
+          <tr><td>Weight</td><td class="n">—</td><td class="n">5.00 lb</td><td class="n hl">315.0 lb</td></tr>
+          <tr><td>Cube</td><td class="n">0.864 ft³</td><td class="n">0.973 ft³</td><td class="n hl">54.30 ft³</td></tr>
+        </tbody>
+      </table>
+      <dl class="kv" style="margin-top:8px">
+        <dt>Case orientation</dt><dd>Height vertical (this side up)</dd>
+        <dt>Board</dt><dd>C-flute, 0.156" caliper</dd>
+        <dt>Pallet</dt><dd>GMA 48 × 40 × 4.0 in, 2-way, 65 lb</dd>
+        <dt>Net load weight</dt><dd class="num">250.0 lb</dd>
+        <dt>Stacking</dt><dd>Interlock — alternate layers turned 180°</dd>
+        <dt>Strapping</dt><dd>2 straps, lengthwise</dd>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <h2>Limits &amp; efficiency</h2>
+      <div class="limit">
+        <div class="top"><span>Load height</span><span class="num"><b>49.50</b> / 52.00 in</span></div>
+        <div class="bar"><i style="width:95.2%"></i></div>
+      </div>
+      <div class="limit">
+        <div class="top"><span>Gross weight</span><span class="num"><b>315</b> / 5,000 lb</span></div>
+        <div class="bar dim"><i style="width:6.3%"></i></div>
+      </div>
+      <div class="limit">
+        <div class="top"><span>Overhang / underhang</span><span class="num">ends +0.30 · sides −0.50 in</span></div>
+      </div>
+      <div class="controls"><b>Layer count set by height.</b> A 6th layer would reach 58.60" (limit 52.00").</div>
+      <div class="eff">
+        <div class="card"><div class="v num">96.19%</div><div class="d">Area efficiency<br>case footprint ÷ pallet area (48 × 40)</div></div>
+        <div class="card"><div class="v num">91.18%</div><div class="d">Cube efficiency<br>case volume ÷ pallet area × usable height (48.0")</div></div>
+      </div>
+      <div class="badge">Proven optimal: 10 per layer is the maximum possible</div>
+    </div>
+  </section>
+
+  <section class="row foot">
+    <div class="panel">
+      <h2>Notes</h2>
+      <div class="notes">Mock-up using the TOPS reference load. Build layers 1, 3 and 5 as shown on the left and layers 2 and 4 turned 180°. Keep the 0.30" overhang on the fork-entry ends only.<br><i>Placeholders in this mock-up: 12 units per case, 71% seam overlap, strapping and spec/SKU fields.</i></div>
+    </div>
+    <div class="panel">
+      <h2>Approval</h2>
+      <div class="sign">
+        <div><span>Prepared by</span><span>Date</span></div>
+        <div><span>Approved by</span><span>Date</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Pallet Pack-Out · all dimensions in inches · OD = outside, ID = inside</span>
+    <span>Page 1 of 1</span>
+  </footer>
+</div>
+
+<script>
+// ---------- Load model (what the engine will output) ----------
+const pallet = { L: 48, W: 40, H: 4 };
+const cs = { l: 16.2, w: 11.4, h: 9.1 };
+const loadL = 48.6, loadW = 39.0, layers = 5;
+const ox = (pallet.L - loadL) / 2;   // -0.3 overhang on ends
+const oy = (pallet.W - loadW) / 2;   //  0.5 underhang on sides
+
+// Odd layer: 3x2 block (lengthwise) at y=0, strip of 4 turned cases above it.
+function layerOdd() {
+  const b = [];
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++)
+    b.push({ x: c * cs.l, y: r * cs.w, l: cs.l, w: cs.w, rot: false });
+  const stripY = 2 * cs.w, gap = (loadL - 4 * cs.w) / 3;
+  for (let c = 0; c < 4; c++)
+    b.push({ x: c * (cs.w + gap), y: stripY, l: cs.w, w: cs.l, rot: true });
+  return b;
+}
+// Even layer: odd layer turned 180° about the load center.
+function layerEven() {
+  return layerOdd().map(b => ({ ...b, x: loadL - b.x - b.l, y: loadW - b.y - b.w }));
+}
+
+// ---------- 2D layer diagram ----------
+function drawLayer(svgId, boxes) {
+  const svg = document.getElementById(svgId);
+  const pad = 22, s = (200 - pad * 2) / Math.max(pallet.L, pallet.W);
+  const X = x => pad + (x - Math.min(0, ox)) * s;
+  const Y = y => pad + 10 + y * s;
+  let h = '';
+  // pallet outline
+  h += `<rect x="${X(0)}" y="${Y(0)}" width="${pallet.L*s}" height="${pallet.W*s}" fill="#f4efe8" stroke="#4a5566" stroke-dasharray="3 2" stroke-width="1"/>`;
+  boxes.forEach((b, i) => {
+    const fill = b.rot ? 'var(--rot)' : 'var(--kraft)';
+    const stroke = b.rot ? 'var(--rot-dark)' : 'var(--kraft-dark)';
+    const x = X(b.x + ox), y = Y(b.y + oy), w = b.l * s, hh = b.w * s;
+    h += `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+    h += `<text x="${x + w/2}" y="${y + hh/2 + 3.5}" text-anchor="middle" font-size="10" font-weight="600" fill="#1c2430">${i + 1}</text>`;
+  });
+  // dimensions
+  const top = Y(0) - 8, x0 = X(ox), x1 = X(ox + loadL);
+  h += `<line x1="${x0}" y1="${top}" x2="${x1}" y2="${top}" stroke="#1c2430" stroke-width=".8"/>`;
+  h += `<line x1="${x0}" y1="${top-3}" x2="${x0}" y2="${top+3}" stroke="#1c2430"/><line x1="${x1}" y1="${top-3}" x2="${x1}" y2="${top+3}" stroke="#1c2430"/>`;
+  h += `<text class="dim" x="${(x0+x1)/2}" y="${top-3}" text-anchor="middle" font-size="9">48.60</text>`;
+  const by = Y(pallet.W) + 9, y0 = Y(oy), y1 = Y(oy + loadW), rx = X(pallet.L) + 6;
+  h += `<text class="dim" x="${(x0+x1)/2}" y="${by + 4}" text-anchor="middle" font-size="9">← 39.00 deep →</text>`;
+  // fork arrows on 40" ends
+  const my = Y(pallet.W / 2);
+  h += `<path d="M ${X(0)-13} ${my-5} L ${X(0)-5} ${my} L ${X(0)-13} ${my+5} Z" fill="#1c2430"/>`;
+  h += `<path d="M ${X(pallet.L)+13} ${my-5} L ${X(pallet.L)+5} ${my} L ${X(pallet.L)+13} ${my+5} Z" fill="#1c2430"/>`;
+  svg.innerHTML = h;
+}
+drawLayer('layerOdd', layerOdd());
+drawLayer('layerEven', layerEven());
+
+// ---------- Isometric 3D ----------
+const C30 = Math.cos(Math.PI / 6), S30 = 0.5;
+function isoBox(b, k, cx, cy, colors) {
+  // b: {x,y,z,l,w,h}; viewer looks from +x,+y,+z → shows top, +y face (left), +x face (right)
+  const P = (x, y, z) => [cx + (x - y) * C30 * k, cy + (x + y) * S30 * k - z * k];
+  const pts = a => a.map(p => p.join(',')).join(' ');
+  const { x, y, z, l, w, h } = b;
+  const top = [P(x,y,z+h), P(x+l,y,z+h), P(x+l,y+w,z+h), P(x,y+w,z+h)];
+  const right = [P(x+l,y,z), P(x+l,y+w,z), P(x+l,y+w,z+h), P(x+l,y,z+h)];
+  const left = [P(x,y+w,z), P(x+l,y+w,z), P(x+l,y+w,z+h), P(x,y+w,z+h)];
+  const st = `stroke="${colors.edge}" stroke-width=".7" stroke-linejoin="round"`;
+  return `<polygon points="${pts(left)}" fill="${colors.side}" ${st}/>` +
+         `<polygon points="${pts(right)}" fill="${colors.front}" ${st}/>` +
+         `<polygon points="${pts(top)}" fill="${colors.top}" ${st}/>`;
+}
+// painter's order for non-overlapping boxes in a layer: A before B if A is behind B
+function order(boxes) {
+  const out = [], rest = boxes.slice();
+  while (rest.length) {
+    const i = rest.findIndex(a => !rest.some(b => b !== a &&
+      ((b.x + b.l <= a.x && !(b.y >= a.y + a.w || b.y + b.w <= a.y)) ||
+       (b.y + b.w <= a.y && !(b.x >= a.x + a.l || b.x + b.l <= a.x)) ||
+       (b.x + b.l <= a.x && b.y + b.w <= a.y))));
+    out.push(rest.splice(i < 0 ? 0 : i, 1)[0]);
+  }
+  return out;
+}
+const kraft = { top: 'var(--kraft)', front: 'var(--kraft-side)', side: 'var(--kraft-dark)', edge: '#6e4f2b' };
+const blue = { top: 'var(--rot)', front: 'var(--rot-side)', side: 'var(--rot-dark)', edge: '#22466b' };
+const wood = { top: 'var(--pallet)', front: 'var(--pallet-dark)', side: '#5a4330', edge: '#3a2a1c' };
+
+(function drawLoad() {
+  const svg = document.getElementById('iso');
+  const k = 3.05, cx = 200 - (pallet.L - pallet.W) * C30 * k / 2, cy = 190;
+  let h = '';
+  // pallet: deck boards + stringers (simplified)
+  h += isoBox({ x: 0, y: 0, z: 0, l: pallet.L, w: pallet.W, h: pallet.H }, k, cx, cy, wood);
+  for (let L = 0; L < layers; L++) {
+    const src = L % 2 === 0 ? layerOdd() : layerEven();
+    const z = pallet.H + L * cs.h;
+    order(src.map(b => ({ x: b.x + ox, y: b.y + oy, z, l: b.l, w: b.w, h: cs.h, rot: b.rot })))
+      .forEach(b => h += isoBox(b, k, cx, cy, b.rot ? blue : kraft));
+  }
+  // dimension labels
+  const P = (x, y, z) => [cx + (x - y) * C30 * k, cy + (x + y) * S30 * k - z * k];
+  const [lx, ly] = P(pallet.L / 2, pallet.W + 6, 0);
+  const [wx, wy] = P(pallet.L + 6, pallet.W / 2, 0);
+  const [hx, hy] = P(pallet.L + 2, -2, 49.5 / 2);
+  h += `<text class="dim" x="${lx - 16}" y="${ly + 10}" text-anchor="middle">48.60</text>`;
+  h += `<text class="dim" x="${wx + 14}" y="${wy + 10}" text-anchor="middle">39.00</text>`;
+  h += `<text class="dim" x="${hx + 16}" y="${hy}" text-anchor="start">49.50</text>`;
+  svg.innerHTML = h;
+})();
+
+(function drawCase() {
+  const svg = document.getElementById('caseIso');
+  const k = 3.4;
+  let h = isoBox({ x: 0, y: 0, z: 0, l: cs.l, w: cs.w, h: cs.h }, k, 95, 42, kraft);
+  const P = (x, y, z) => [95 + (x - y) * C30 * k, 42 + (x + y) * S30 * k - z * k];
+  const [a, b] = P(cs.l / 2, cs.w + 3, 0), [c, d] = P(cs.l + 3, cs.w / 2, 0), [e, f] = P(cs.l + 1, 0, cs.h / 2);
+  h += `<text class="dim" x="${a - 10}" y="${b + 6}" text-anchor="end" font-size="9">16.20 L</text>`;
+  h += `<text class="dim" x="${c + 6}" y="${d + 8}" font-size="9">11.40 W</text>`;
+  h += `<text class="dim" x="${e + 8}" y="${f - 4}" font-size="9">9.10 H</text>`;
+  h += `<text x="250" y="34" font-size="10" font-weight="600" fill="#1c2430">Case (OD)</text>`;
+  h += `<text x="250" y="50" font-size="9.5" fill="#4a5566">16.20 × 11.40 × 9.10 in</text>`;
+  h += `<text x="250" y="64" font-size="9.5" fill="#4a5566">5.00 lb · 12 units · C-flute RSC</text>`;
+  h += `<text x="250" y="78" font-size="9.5" fill="#4a5566">This side up</text>`;
+  svg.innerHTML = h;
+})();
+</script>
+</body>
+</html>
