@@ -1,0 +1,10 @@
+{
+  "name": "pallet-pack-out",
+  "private": true,
+  "workspaces": ["engine", "app"],
+  "scripts": {
+    "dev": "npm run dev -w app",
+    "build": "npm run build -w app",
+    "test": "npm test -w engine"
+  }
+}

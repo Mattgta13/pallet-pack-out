@@ -1,0 +1,165 @@
+import type { Flute, Pallet, StackingStyle } from '@packout/engine';
+import type { Job } from '../job';
+import { sheetThickness, sheetUnitWeight } from '../job';
+import { fmtLen, fmtWt, lenUnit, type UnitSystem } from '../units';
+import { Check, NumField, SelectField, Segmented, TextField } from './Fields';
+
+interface Props {
+  job: Job;
+  set: <K extends keyof Job>(k: K, v: Job[K]) => void;
+  units: UnitSystem;
+  pallets: Pallet[];
+  flutes: Flute[];
+  onManage: (tab: 'pallets' | 'flutes') => void;
+}
+
+export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props) {
+  const isSheet = job.productType === 'sheet';
+  const flute = flutes.find((f) => f.id === job.fluteId);
+  const fluteOptions = flutes.map((f) => ({
+    value: f.id,
+    label: `${f.name} — ${fmtLen(f.caliper, units, units === 'imperial' ? 4 : 1)} ${lenUnit(units)}`,
+  }));
+
+  return (
+    <div className="inputs">
+      <section className="card">
+        <h3>Product</h3>
+        <Segmented
+          ariaLabel="Product type"
+          value={job.productType}
+          onChange={(v) => set('productType', v)}
+          options={[
+            { value: 'case', label: 'Case' },
+            { value: 'sheet', label: 'Die-cut sheet' },
+          ]}
+        />
+        <div className="grid2">
+          <TextField label="Name" value={job.name} onChange={(v) => set('name', v)} />
+          <TextField label="SKU / item #" value={job.sku} onChange={(v) => set('sku', v)} />
+        </div>
+        <div className={isSheet ? 'grid2' : 'grid3'}>
+          <NumField label="Length" kind="len" units={units} value={job.length} onChange={(v) => set('length', v ?? 0)} />
+          <NumField label="Width" kind="len" units={units} value={job.width} onChange={(v) => set('width', v ?? 0)} />
+          {!isSheet && <NumField label="Height" kind="len" units={units} value={job.height} onChange={(v) => set('height', v ?? 0)} />}
+        </div>
+
+        {isSheet ? (
+          <>
+            <SelectField
+              label="Flute (sets sheet thickness)"
+              value={job.fluteId}
+              onChange={(v) => set('fluteId', v)}
+              options={fluteOptions}
+              hint={<button type="button" className="link" onClick={() => onManage('flutes')}>Edit flute table</button>}
+            />
+            <div className="grid2">
+              <NumField
+                label="Thickness override"
+                kind="len"
+                units={units}
+                allowBlank
+                placeholder={flute ? fmtLen(flute.caliper, units, units === 'imperial' ? 4 : 1) : ''}
+                value={job.thicknessOverride}
+                onChange={(v) => set('thicknessOverride', v)}
+              />
+              <NumField
+                label="Sheet weight"
+                kind="wt"
+                units={units}
+                allowBlank
+                placeholder={fmtWt(sheetUnitWeight({ ...job, sheetWeightOverride: null }, flute), units, 3)}
+                value={job.sheetWeightOverride}
+                onChange={(v) => set('sheetWeightOverride', v)}
+                hint={job.sheetWeightOverride == null ? 'Calculated from blank size × flute weight' : 'Manual value'}
+              />
+            </div>
+            <p className="muted small">
+              Using {fmtLen(sheetThickness(job, flute), units, units === 'imperial' ? 4 : 2)} {lenUnit(units)} per sheet; sheets lie flat.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="grid2">
+              <NumField label="Case weight" kind="wt" units={units} value={job.weight} onChange={(v) => set('weight', v ?? 0)} />
+              <NumField label="Units per case" units={units} value={job.unitsPerCase} onChange={(v) => set('unitsPerCase', Math.max(0, Math.round(v ?? 0)))} />
+            </div>
+            <SelectField
+              label="Case board (for inside dimensions)"
+              value={job.caseFluteId}
+              onChange={(v) => set('caseFluteId', v)}
+              options={[{ value: '', label: 'Not specified' }, ...fluteOptions]}
+            />
+            <Check label="This side up (height stays vertical)" checked={job.thisSideUp} onChange={(v) => set('thisSideUp', v)} />
+          </>
+        )}
+      </section>
+
+      <section className="card">
+        <h3>Pallet &amp; limits</h3>
+        <SelectField
+          label="Pallet"
+          value={job.palletId}
+          onChange={(v) => set('palletId', v)}
+          options={pallets.map((p) => ({ value: p.id ?? p.name, label: p.name }))}
+          hint={<button type="button" className="link" onClick={() => onManage('pallets')}>Add or edit pallets</button>}
+        />
+        <div className="grid2">
+          <NumField label="Max height (incl. pallet)" kind="len" units={units} value={job.maxHeight} onChange={(v) => set('maxHeight', v ?? 0)} />
+          <NumField label="Max gross weight" kind="wt" units={units} value={job.maxGross} onChange={(v) => set('maxGross', v ?? 0)} />
+          <NumField label="Overhang, each end" kind="len" units={units} value={job.overhangEnds} onChange={(v) => set('overhangEnds', v ?? 0)} hint="Negative = underhang" />
+          <NumField label="Overhang, each side" kind="len" units={units} value={job.overhangSides} onChange={(v) => set('overhangSides', v ?? 0)} hint="Negative = underhang" />
+          {!isSheet && (
+            <NumField label="Max layers" units={units} allowBlank placeholder="No limit" value={job.maxLayers} onChange={(v) => set('maxLayers', v == null ? null : Math.max(1, Math.round(v)))} />
+          )}
+        </div>
+      </section>
+
+      <section className="card">
+        <h3>Stacking</h3>
+        <Segmented<StackingStyle>
+          ariaLabel="Stacking style"
+          value={job.stacking}
+          onChange={(v) => set('stacking', v)}
+          options={[
+            { value: 'auto', label: 'Compare both' },
+            { value: 'column', label: 'All layers same' },
+            { value: 'interlock', label: 'Patterned' },
+          ]}
+        />
+        {isSheet && job.stacking !== 'column' && (
+          <NumField label="Sheets per lift" units={units} value={job.sheetsPerLift} onChange={(v) => set('sheetsPerLift', Math.max(1, Math.round(v ?? 1)))} hint="Each lift alternates its layout" />
+        )}
+        <Check label="Strapping" checked={job.strapping} onChange={(v) => set('strapping', v)} />
+        {job.strapping && (
+          <div className="grid2">
+            <NumField label="Straps" units={units} value={job.strapCount} onChange={(v) => set('strapCount', Math.max(1, Math.round(v ?? 1)))} />
+            <SelectField
+              label="Direction"
+              value={job.strapDirection}
+              onChange={(v) => set('strapDirection', v)}
+              options={[
+                { value: 'lengthwise', label: 'Lengthwise' },
+                { value: 'widthwise', label: 'Widthwise' },
+                { value: 'both ways', label: 'Both ways' },
+              ]}
+            />
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <h3>Spec sheet details</h3>
+        <div className="grid2">
+          <TextField label="Spec #" value={job.specNo} onChange={(v) => set('specNo', v)} />
+          <TextField label="Revision" value={job.revision} onChange={(v) => set('revision', v)} />
+        </div>
+        <TextField label="Prepared by" value={job.preparedBy} onChange={(v) => set('preparedBy', v)} />
+        <label className="field">
+          <span className="field-label">Notes</span>
+          <textarea rows={3} value={job.notes} onChange={(e) => set('notes', e.target.value)} />
+        </label>
+      </section>
+    </div>
+  );
+}
