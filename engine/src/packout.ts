@@ -1,7 +1,7 @@
 /**
  * Full pallet pack-out: orientation × layer pattern × stacking × limits.
  */
-import { solveLayer, type Placement } from './layer';
+import { solveLayer, type LayerSolution, type Placement } from './layer';
 import { upperBound } from './bounds';
 import { toInt, toNum } from './units';
 import type {
@@ -75,11 +75,57 @@ const mirrorY = (r: RawLayer): RawLayer => ({
   boxes: r.boxes.map((p) => ({ ...p, y: r.extW - p.y - p.w })),
 });
 
-/** Centre a layer on the pallet. Returns integer-unit boxes in pallet coordinates (may be fractional by ½). */
+/**
+ * Centre a layer on the pallet, then centre every unit within the free space
+ * around it (inside the layer's footprint), so no stack is left pushed against
+ * one side of a gap. Units that touch move together as a group.
+ */
 function centre(r: RawLayer, PL: number, PW: number): Placement[] {
   const dx = (PL - r.extL) / 2;
   const dy = (PW - r.extW) / 2;
-  return r.boxes.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+  const boxes = r.boxes.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+  settle(boxes, 'y', dy, dy + r.extW);
+  settle(boxes, 'x', dx, dx + r.extL);
+  return boxes;
+}
+
+/**
+ * Along one axis: push every box as far as it goes to the low side, then to the
+ * high side (keeping order), and place it halfway between. Both pushed layouts
+ * are valid and keep the same order, so their average is valid too.
+ */
+function settle(boxes: Placement[], axis: 'x' | 'y', lo: number, hi: number): void {
+  const pos = (b: Placement) => (axis === 'x' ? b.x : b.y);
+  const len = (b: Placement) => (axis === 'x' ? b.l : b.w);
+  const overlapsAcross = (a: Placement, b: Placement) =>
+    axis === 'x' ? a.y < b.y + b.w && b.y < a.y + a.w : a.x < b.x + b.l && b.x < a.x + a.l;
+
+  const asc = boxes.map((_, i) => i).sort((i, j) => pos(boxes[i]) - pos(boxes[j]));
+  const low = new Array<number>(boxes.length);
+  const high = new Array<number>(boxes.length);
+  for (let k = 0; k < asc.length; k++) {
+    const i = asc[k];
+    let v = lo;
+    for (let m = 0; m < k; m++) {
+      const j = asc[m];
+      if (overlapsAcross(boxes[i], boxes[j])) v = Math.max(v, low[j] + len(boxes[j]));
+    }
+    low[i] = v;
+  }
+  for (let k = asc.length - 1; k >= 0; k--) {
+    const i = asc[k];
+    let v = hi - len(boxes[i]);
+    for (let m = asc.length - 1; m > k; m--) {
+      const j = asc[m];
+      if (overlapsAcross(boxes[i], boxes[j])) v = Math.min(v, high[j] - len(boxes[i]));
+    }
+    high[i] = v;
+  }
+  for (let i = 0; i < boxes.length; i++) {
+    const v = (low[i] + high[i]) / 2;
+    if (axis === 'x') boxes[i].x = v;
+    else boxes[i].y = v;
+  }
 }
 
 /** Share of upper boxes resting on 2+ lower boxes. */
@@ -153,6 +199,18 @@ function transposedLayer(UL: number, UW: number, a: number, b: number): Placemen
   }));
 }
 
+/** Every unit the same way round: a plain grid. */
+function blockLayer(UL: number, UW: number, a: number, b: number, turned: boolean): LayerSolution {
+  const p = turned ? b : a;
+  const q = turned ? a : b;
+  const nx = Math.floor(UL / p);
+  const ny = Math.floor(UW / q);
+  const placements: Placement[] = [];
+  for (let i = 0; i < nx; i++)
+    for (let j = 0; j < ny; j++) placements.push({ x: i * p, y: j * q, l: p, w: q, rot: turned });
+  return { count: placements.length, placements, pattern: placements.length ? 'block' : 'empty', exhaustive: true };
+}
+
 export function solvePackOut(input: PackOutInput): PackOutResult[] {
   const { product, pallet, constraints: c } = input;
   const PL = toInt(pallet.length);
@@ -169,7 +227,9 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
 
   for (const o of orientations(input)) {
     if (o.h > usableH) continue;
-    const sol = solveLayer(UL, UW, o.a, o.b);
+    const direction = c.direction ?? 'mixed';
+    const best = solveLayer(UL, UW, o.a, o.b);
+    const sol = direction === 'mixed' ? best : blockLayer(UL, UW, o.a, o.b, direction === 'crosswise');
     if (sol.count === 0) continue;
     const ub = upperBound(UL, UW, o.a, o.b);
     const base = raw(sol.placements);
@@ -181,11 +241,13 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
       const notes: string[] = [];
       if (!sol.exhaustive && sol.count < ub)
         notes.push('Very small unit for this pallet: pinwheel search was capped, so a slightly better layer may exist.');
+      if (direction !== 'mixed' && best.count > sol.count)
+        notes.push(`All units ${direction}: ${sol.count} per layer. Mixing directions would fit ${best.count}.`);
       const odd = centre(base, PL, PW);
       let even = odd;
       let br = 0;
       if (style === 'interlock') {
-        const t = transposedLayer(UL, UW, o.a, o.b);
+        const t = direction === 'mixed' ? transposedLayer(UL, UW, o.a, o.b) : null;
         const others = t && t.length === sol.count ? [raw(t)] : [];
         const alt = bestAlternate(base, others, PL, PW);
         if (alt.bridging === 0) {
@@ -254,6 +316,7 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
         unitW: toNum(o.b),
         unitH: toNum(o.h),
         stacking: style === 'interlock' && br > 0 ? 'interlock' : 'column',
+        direction,
         pattern: sol.pattern,
         perLayer,
         layers,

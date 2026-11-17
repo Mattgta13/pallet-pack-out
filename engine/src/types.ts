@@ -67,7 +67,12 @@ export interface Constraints {
   stacking: StackingStyle;
   /** Die-cut sheets, interlock only: sheets per lift (each lift alternates its layout). */
   sheetsPerLift?: number;
+  /** Lock every unit in a layer to one direction: 'lengthwise' = the unit's length runs
+   *  along the pallet length, 'crosswise' = turned 90°. Default 'mixed' (best fit). */
+  direction?: Direction;
 }
+
+export type Direction = 'mixed' | 'lengthwise' | 'crosswise';
 
 export interface PackOutInput {
   product: Product;
@@ -103,6 +108,7 @@ export interface PackOutResult {
   /** Height of one unit (case height, sheet thickness). */
   unitH: number;
   stacking: 'column' | 'interlock';
+  direction: Direction;
   pattern: 'block' | 'two-block' | 'multi-block' | 'pinwheel' | 'empty';
   perLayer: number;
   /** Layers of cases; for sheets, lifts (column = 1 lift of the full stack). */

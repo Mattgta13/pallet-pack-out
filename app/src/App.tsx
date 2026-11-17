@@ -11,6 +11,7 @@ import { resultKey } from './describe';
 import type { UnitSystem } from './units';
 
 const UNITS_KEY = 'ppo.units.v1';
+const NOTES_KEY = 'ppo.showNotes.v1';
 
 export default function App() {
   const { job, set, reset } = useJob();
@@ -30,6 +31,14 @@ export default function App() {
       /* ignore */
     }
   }, [units]);
+
+  // Optimization notes: one setting for the results panel and the spec sheet.
+  const [showNotes, setShowNotes] = useState(() => {
+    try { return localStorage.getItem(NOTES_KEY) !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(NOTES_KEY, showNotes ? '1' : '0'); } catch { /* ignore */ }
+  }, [showNotes]);
 
   const [view, setView] = useState<'calc' | 'spec'>('calc');
   const [library, setLibrary] = useState<null | 'pallets' | 'flutes'>(null);
@@ -91,6 +100,8 @@ export default function App() {
               ms={ms}
               onOpenSpec={() => setView('spec')}
               strapping={job.strapping ? { count: job.strapCount, direction: job.strapDirection } : null}
+              showNotes={showNotes}
+              onShowNotes={setShowNotes}
             />
           ) : (
             <div className="empty card">Add a pallet to get started.</div>
@@ -98,7 +109,7 @@ export default function App() {
         </main>
       ) : (
         <main className="spec">
-          <SpecSheet job={job} result={selected} pallet={pallet} flutes={flutes.rows} units={units} />
+          <SpecSheet job={job} result={selected} pallet={pallet} flutes={flutes.rows} units={units} showNotes={showNotes} />
         </main>
       )}
 

@@ -1,6 +1,6 @@
 /** The pack-out being edited. All lengths in inches, weights in pounds. */
 import { useEffect, useState } from 'react';
-import { sheetWeight, type Flute, type PackOutInput, type Pallet, type StackingStyle } from '@packout/engine';
+import { sheetWeight, type Direction, type Flute, type PackOutInput, type Pallet, type StackingStyle } from '@packout/engine';
 
 export interface Job {
   productType: 'case' | 'sheet';
@@ -31,6 +31,7 @@ export interface Job {
   overhangEnds: number;
   overhangSides: number;
   stacking: StackingStyle;
+  direction: Direction;
   sheetsPerLift: number;
   // strapping
   strapping: boolean;
@@ -63,6 +64,7 @@ export const DEFAULT_JOB: Job = {
   overhangEnds: 0,
   overhangSides: 0,
   stacking: 'auto',
+  direction: 'mixed',
   sheetsPerLift: 50,
   strapping: false,
   strapCount: 2,
@@ -112,6 +114,7 @@ export function toInput(job: Job, pallet: Pallet | undefined, flutes: Flute[]): 
     overhangEnds: job.overhangEnds,
     overhangSides: job.overhangSides,
     stacking: job.stacking,
+    direction: job.direction,
     sheetsPerLift: job.sheetsPerLift,
   };
   if (job.productType === 'case') {

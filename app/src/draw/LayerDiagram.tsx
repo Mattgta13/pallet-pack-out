@@ -1,6 +1,6 @@
 import type { LayerPattern, Pallet } from '@packout/engine';
 import { fmtLen, type UnitSystem } from '../units';
-import { strapsFor, topDeckBoards, type Strapping } from './geometry';
+import { strapSpan, strapsFor, topDeckBoards, type Strapping } from './geometry';
 
 interface Props {
   layer: LayerPattern;
@@ -56,13 +56,16 @@ export function LayerDiagram({ layer, pallet, units, size = 220, strapping }: Pr
           )}
         </g>
       ))}
-      {straps.map((st, i) =>
-        st.axis === 'x' ? (
-          <rect key={`s${i}`} x={X(minX) - 3} y={Y(st.at) - strapPx / 2} width={(maxX - minX) * s + 6} height={strapPx} fill="var(--strap)" opacity={0.9} />
+      {straps.map((st, i) => {
+        const span = strapSpan(boxes, st, pallet.length, pallet.width);
+        if (!span) return null;
+        const [a0, a1] = span;
+        return st.axis === 'x' ? (
+          <rect key={`s${i}`} x={X(a0)} y={Y(st.at) - strapPx / 2} width={(a1 - a0) * s} height={strapPx} fill="var(--strap)" opacity={0.9} />
         ) : (
-          <rect key={`s${i}`} x={X(st.at) - strapPx / 2} y={Y(minY) - 3} width={strapPx} height={(maxY - minY) * s + 6} fill="var(--strap)" opacity={0.9} />
-        ),
-      )}
+          <rect key={`s${i}`} x={X(st.at) - strapPx / 2} y={Y(a0)} width={strapPx} height={(a1 - a0) * s} fill="var(--strap)" opacity={0.9} />
+        );
+      })}
       {/* load length dimension */}
       <line x1={X(lMinX)} y1={Y(minY) - 9} x2={X(lMaxX)} y2={Y(minY) - 9} stroke="var(--ink)" strokeWidth={0.8} />
       <line x1={X(lMinX)} y1={Y(minY) - 12} x2={X(lMinX)} y2={Y(minY) - 6} stroke="var(--ink)" />

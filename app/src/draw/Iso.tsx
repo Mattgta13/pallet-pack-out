@@ -1,5 +1,5 @@
 import type { Box3D, BoxKind, Strap } from './geometry';
-import { paintOrder } from './geometry';
+import { paintOrder, strapQuads } from './geometry';
 
 const C30 = Math.cos(Math.PI / 6);
 
@@ -67,17 +67,6 @@ export function Iso({ boxes, straps = [], labels = [], width, height, pad = 28, 
   const sheetH = boxes.find((b) => b.sheetH)?.sheetH;
   const sheetStep = sheetH ? Math.max(1, Math.ceil(SHEET_LINE_PX / (sheetH * k))) : 0;
 
-  // Strap extents: around the whole load and pallet.
-  const units = boxes.filter((b) => b.kind === 'unit');
-  const ext = {
-    x0: Math.min(...boxes.map((b) => b.x)),
-    x1: Math.max(...boxes.map((b) => b.x + b.l)),
-    y0: Math.min(...boxes.map((b) => b.y)),
-    y1: Math.max(...boxes.map((b) => b.y + b.w)),
-    top: units.length ? Math.max(...units.map((b) => b.z + b.h)) : 0,
-  };
-  const sw = STRAP_W / 2;
-
   return (
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="3D view of the pallet load">
       {paintOrder(boxes).map((b, i) => {
@@ -103,28 +92,14 @@ export function Iso({ boxes, straps = [], labels = [], width, height, pad = 28, 
         );
       })}
 
-      {/* Straps: visible runs over the top and down the two front faces. */}
-      {straps.map((s, i) => {
-        const { x0, x1, y0, y1, top } = ext;
-        const lift = 0.05; // sit just proud of the surface
-        const parts =
-          s.axis === 'x'
-            ? [
-                poly(P(x0, s.at - sw, top + lift), P(x1, s.at - sw, top + lift), P(x1, s.at + sw, top + lift), P(x0, s.at + sw, top + lift)),
-                poly(P(x1 + lift, s.at - sw, 0), P(x1 + lift, s.at + sw, 0), P(x1 + lift, s.at + sw, top + lift), P(x1 + lift, s.at - sw, top + lift)),
-              ]
-            : [
-                poly(P(s.at - sw, y0, top + lift), P(s.at + sw, y0, top + lift), P(s.at + sw, y1, top + lift), P(s.at - sw, y1, top + lift)),
-                poly(P(s.at - sw, y1 + lift, 0), P(s.at + sw, y1 + lift, 0), P(s.at + sw, y1 + lift, top + lift), P(s.at - sw, y1 + lift, top + lift)),
-              ];
-        return (
-          <g key={`s${i}`} className="strap">
-            {parts.map((pts, j) => (
-              <polygon key={j} points={pts} fill="var(--strap)" stroke="var(--strap-edge)" strokeWidth={0.6} />
-            ))}
-          </g>
-        );
-      })}
+      {/* Straps: over the top of the load and down its front faces, edge to edge. */}
+      {straps.map((st, i) => (
+        <g key={`s${i}`} className="strap">
+          {strapQuads(boxes, st, STRAP_W).map((q, j) => (
+            <polygon key={j} points={poly(...q.map((p) => P(...p)))} fill="var(--strap)" stroke="var(--strap-edge)" strokeWidth={0.5} strokeLinejoin="round" />
+          ))}
+        </g>
+      ))}
 
       {labels.map((lb, i) => {
         const [sx, sy] = P(...lb.at).split(',').map(Number);

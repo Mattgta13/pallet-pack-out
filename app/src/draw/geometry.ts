@@ -129,6 +129,98 @@ export function strapsFor(boxes: Box3D[], s?: Strapping | null): Strap[] {
   return out;
 }
 
+type Pt = [number, number, number];
+
+/**
+ * The visible part of a strap as flat pieces (each four 3D corners). Across the
+ * top it hugs the load, edge to edge; down the front it runs in straight lines
+ * to the pallet's top edge, then down the side of the pallet and back under it,
+ * the way a tensioned strap sits on a real load. Hidden runs (back face,
+ * underside) are left out.
+ */
+export function strapQuads(boxes: Box3D[], s: Strap, width: number, lift = 0.04): Pt[][] {
+  const hw = width / 2;
+  const c = s.at;
+  const across = (b: Box3D) => (s.axis === 'x' ? [b.y, b.y + b.w] : [b.x, b.x + b.l]);
+  const along = (b: Box3D) => (s.axis === 'x' ? [b.x, b.x + b.l] : [b.y, b.y + b.w]);
+  const hit = boxes.filter((b) => {
+    if (b.kind !== 'unit') return false;
+    const [a0, a1] = across(b);
+    // Any box under the strap's width, so a strap lying on a seam between rows still counts.
+    return a0 < c + hw - 1e-9 && c - hw + 1e-9 < a1;
+  });
+  if (!hit.length) return [];
+
+  // Group the boxes the strap crosses into horizontal bands (layers or lifts).
+  const bands = new Map<number, { z0: number; z1: number; back: number; face: number }>();
+  for (const b of hit) {
+    const key = Math.round(b.z * 1e4);
+    const [a0, a1] = along(b);
+    const g = bands.get(key) ?? { z0: b.z, z1: b.z + b.h, back: Infinity, face: -Infinity };
+    g.z1 = Math.max(g.z1, b.z + b.h);
+    g.back = Math.min(g.back, a0);
+    g.face = Math.max(g.face, a1);
+    bands.set(key, g);
+  }
+  const list = [...bands.values()].sort((p, q) => p.z0 - q.z0);
+
+  // Local (along, z) → world point, on one side of the strap's centre line.
+  const W = (a: number, side: number, z: number): Pt => (s.axis === 'x' ? [a, c + side * hw, z] : [c + side * hw, a, z]);
+  const flat = (a0: number, a1: number, z: number): Pt[] => [W(a0, -1, z), W(a1, -1, z), W(a1, 1, z), W(a0, 1, z)];
+
+  // Pallet edge on the visible side, and the top deck the strap wraps under.
+  const pallet = boxes.filter((b) => b.kind !== 'unit');
+  const deckTop = list[0].z0;
+  const palletFace = pallet.length ? Math.max(...pallet.map((b) => along(b)[1])) : -Infinity;
+
+  const out: Pt[][] = [];
+  const top = list[list.length - 1];
+  out.push(flat(top.back, top.face + lift, top.z1 + lift));
+
+  // Down the front, the tensioned strap runs in straight lines from the top edge of
+  // the load to the bottom edge of the pallet, over the outermost corners of the
+  // layers and pallet: with no overhang it slopes out to the pallet's top edge and
+  // drops down its side; with overhang it angles back in from the load's bottom edge.
+  const end = Math.max(palletFace, list[0].face);
+  const byZ = new Map<number, [number, number]>();
+  const add = (a: number, z: number) => {
+    const k = Math.round(z * 1e4);
+    const p = byZ.get(k);
+    if (!p || a > p[0]) byZ.set(k, [a, z]);
+  };
+  for (const g of list) { add(g.face, g.z1); add(g.face, g.z0); }
+  add(end, deckTop);
+  // Down the pallet to its bottom edge. Where the load overhangs, this angles back in.
+  if (Number.isFinite(palletFace)) add(palletFace, 0);
+  const pts = [...byZ.values()].sort((p, q) => q[1] - p[1]);
+  const hull: [number, number][] = [];
+  for (const p of pts) {
+    // Drop the last point while it lies on or inside the line from the one before it to p.
+    while (hull.length >= 2) {
+      const o = hull[hull.length - 2], m = hull[hull.length - 1];
+      const onLine = o[0] + ((p[0] - o[0]) * (m[1] - o[1])) / (p[1] - o[1]);
+      if (m[0] > onLine + 1e-6) break;
+      hull.pop();
+    }
+    hull.push(p);
+  }
+  for (let k = 0; k + 1 < hull.length; k++) {
+    const [a0, z0] = hull[k], [a1, z1] = hull[k + 1];
+    out.push([W(a0 + lift, -1, z0 + lift), W(a0 + lift, 1, z0 + lift), W(a1 + lift, 1, z1), W(a1 + lift, -1, z1)]);
+  }
+  return out;
+}
+
+/** Along-strap extent of a strap in the top view: over the units it crosses and out to the pallet edges. */
+export function strapSpan(boxes: { x: number; y: number; l: number; w: number }[], s: Strap, L: number, W: number): [number, number] | null {
+  const t = 1e-6; // a strap lying on a seam between rows still counts
+  const hit = boxes.filter((b) => (s.axis === 'x' ? b.y <= s.at + t && s.at - t <= b.y + b.w : b.x <= s.at + t && s.at - t <= b.x + b.l));
+  if (!hit.length) return null;
+  return s.axis === 'x'
+    ? [Math.min(0, ...hit.map((b) => b.x)), Math.max(L, ...hit.map((b) => b.x + b.l))]
+    : [Math.min(0, ...hit.map((b) => b.y)), Math.max(W, ...hit.map((b) => b.y + b.w))];
+}
+
 /** Turn the whole scene 90° clockwise (seen from above) `turns` times. */
 export function rotateScene(scene: Scene, turns: number): Scene {
   let { boxes, straps, L, W } = scene;

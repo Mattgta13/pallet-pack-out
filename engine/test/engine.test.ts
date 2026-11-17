@@ -160,6 +160,43 @@ describe('real-size layers stay valid and fast', () => {
   });
 });
 
+describe('centred layouts stay valid', () => {
+  it('never overlaps and stays inside the usable area (200 random loads)', () => {
+    let seed = 99;
+    const rnd = (lo: number, hi: number) => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return lo + ((seed % 10000) / 10000) * (hi - lo);
+    };
+    for (let k = 0; k < 200; k++) {
+      const PL = 36 + Math.round(rnd(0, 12)), PW = 30 + Math.round(rnd(0, 18));
+      const oh = Math.round(rnd(-1, 1) * 4) / 4;
+      for (const r of solvePackOut({
+        product: { kind: 'sheet', length: +rnd(6, 30).toFixed(2), width: +rnd(5, 24).toFixed(2), thickness: 0.125, weight: 0.2 },
+        pallet: { name: 'p', length: PL, width: PW, deckHeight: 5, weight: 40, entry: '2-way' },
+        constraints: { maxHeight: 50, maxGrossWeight: 5000, overhangEnds: oh, overhangSides: 0, stacking: 'auto' },
+      })) {
+        const tol = 1e-6;
+        for (const layer of [r.oddLayer, r.evenLayer]) {
+          const ps = layer.boxes;
+          for (const p of ps) {
+            expect(p.x).toBeGreaterThanOrEqual(-oh - tol);
+            expect(p.x + p.l).toBeLessThanOrEqual(PL + oh + tol);
+            expect(p.y).toBeGreaterThanOrEqual(-tol);
+            expect(p.y + p.w).toBeLessThanOrEqual(PW + tol);
+          }
+          for (let i = 0; i < ps.length; i++)
+            for (let j = i + 1; j < ps.length; j++) {
+              const p = ps[i], q = ps[j];
+              const overlap =
+                p.x < q.x + q.l - tol && q.x < p.x + p.l - tol && p.y < q.y + q.w - tol && q.y < p.y + p.w - tol;
+              expect(overlap, `${PL}x${PW} oh ${oh}: boxes ${i} and ${j} overlap`).toBe(false);
+            }
+        }
+      }
+    }
+  });
+});
+
 describe('limits', () => {
   it('stops at the weight limit and says so', () => {
     const input = topsInput(52);
@@ -213,6 +250,51 @@ describe('die-cut sheets', () => {
     expect(r.total).toBe(297);
     expect(r.load.height).toBeCloseTo(5.5 + 297 * 0.15625, 6);
     expect(r.limitedBy).toBe('height');
+  });
+
+  it('centres each stack in the free space around it', () => {
+    const input = sheet(23, 15, 'column');
+    input.pallet = { ...input.pallet, length: 40, width: 30 };
+    const [r] = solvePackOut(input);
+    expect(r.perLayer).toBe(3);
+    // Load 38 × 30 centred on the 40 × 30 pallet.
+    expect(r.overhang.ends).toBeCloseTo(-1, 6);
+    // The lone turned stack (23 deep) sits halfway down its 30" column: 3.5" gap each side.
+    const turned = r.oddLayer.boxes.filter((b) => b.rot);
+    expect(turned).toHaveLength(1);
+    expect(turned[0].y).toBeCloseTo(3.5, 6);
+    // The two unturned stacks stay together as a group.
+    const flat = r.oddLayer.boxes.filter((b) => !b.rot).sort((p, q) => p.y - q.y);
+    expect(flat[1].y).toBeCloseTo(flat[0].y + flat[0].w, 6);
+  });
+
+  it('centres a short strip of turned cases as a group (TOPS load)', () => {
+    const [r] = solvePackOut(topsInput(53));
+    const strip = r.oddLayer.boxes.filter((b) => b.rot).sort((p, q) => p.x - q.x);
+    const left = strip[0].x - -0.3;
+    const right = 48.3 - (strip[3].x + strip[3].l);
+    expect(left).toBeCloseTo(right, 6);
+    for (let i = 1; i < 4; i++) expect(strip[i].x).toBeCloseTo(strip[i - 1].x + strip[i - 1].l, 6);
+  });
+
+  it('can lock every stack to one direction, either way', () => {
+    const base = sheet(23, 15, 'column');
+    const mixed = solvePackOut(base)[0];
+    expect(mixed.perLayer).toBe(5);
+    expect(mixed.direction).toBe('mixed');
+
+    // 23 along the 48" length: 2 × 2 = 4 stacks, all unturned
+    const len = solvePackOut({ ...base, constraints: { ...base.constraints, direction: 'lengthwise' } })[0];
+    expect(len.perLayer).toBe(4);
+    expect(len.direction).toBe('lengthwise');
+    expect(len.pattern).toBe('block');
+    expect(len.oddLayer.boxes.every((b) => !b.rot && b.l === 23 && b.w === 15)).toBe(true);
+    expect(len.notes.join(' ')).toMatch(/would fit 5/);
+
+    // 15 along the 48" length: 3 × 1 = 3 stacks, all turned
+    const cross = solvePackOut({ ...base, constraints: { ...base.constraints, direction: 'crosswise' } })[0];
+    expect(cross.perLayer).toBe(3);
+    expect(cross.oddLayer.boxes.every((b) => b.rot && b.l === 15 && b.w === 23)).toBe(true);
   });
 
   it('puts several stacks of a small blank side by side, interlocked by lift', () => {

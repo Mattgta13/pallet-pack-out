@@ -3,7 +3,8 @@ import type { Pallet, PackOutResult } from '@packout/engine';
 import { Iso } from '../draw/Iso';
 import { LayerDiagram } from '../draw/LayerDiagram';
 import { loadScene, rotateScene, type Strapping } from '../draw/geometry';
-import { PATTERN_LABEL, resultKey, stackingLabel } from '../describe';
+import { directionLabel, PATTERN_LABEL, resultKey, stackingLabel } from '../describe';
+import { Check } from './Fields';
 import { fmtInt, fmtLen, fmtPct, fmtWt, lenUnit, wtUnit, type UnitSystem } from '../units';
 
 interface Props {
@@ -20,9 +21,12 @@ interface Props {
   ms: number | null;
   onOpenSpec: () => void;
   strapping: Strapping | null;
+  /** Show the solver's optimization notes (also hides them on the spec sheet). */
+  showNotes: boolean;
+  onShowNotes: (v: boolean) => void;
 }
 
-export function Results({ results, selected, onSelect, pallet, isSheet, units, maxHeight, maxGross, busy, error, ms, onOpenSpec, strapping }: Props) {
+export function Results({ results, selected, onSelect, pallet, isSheet, units, maxHeight, maxGross, busy, error, ms, onOpenSpec, strapping, showNotes, onShowNotes }: Props) {
   const [turns, setTurns] = useState(0);
 
   if (error) return <div className="empty card"><b>Can't calculate yet.</b> {error}</div>;
@@ -64,7 +68,7 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
                   <tr key={k} className={on ? 'on' : ''} onClick={() => onSelect(k)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onSelect(k)} aria-selected={on}>
                     <td>{x.orientation}</td>
                     <td>{x.stacking === 'interlock' ? `Patterned · ${Math.round(x.bridging * 100)}% tied` : 'All same'}</td>
-                    <td>{PATTERN_LABEL[x.pattern]}</td>
+                    <td>{PATTERN_LABEL[x.pattern]}{x.direction !== 'mixed' && <span className="muted"> · {directionLabel(x)}</span>}</td>
                     <td className="r num">{x.perLayer}</td>
                     <td className="r num">{isSheet ? x.sheetsPerStack : x.layers}</td>
                     <td className="r num"><b>{fmtInt(x.total)}</b>{x.total < best && <span className="delta"> −{fmtInt(best - x.total)}</span>}</td>
@@ -81,7 +85,7 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
       <section className="card detail">
         <div className="card-head">
           <h3>
-            {r.orientation} · {stackingLabel(r)}
+            {r.orientation} · {stackingLabel(r)}{r.direction !== 'mixed' ? ` · ${directionLabel(r)}` : ''}
           </h3>
           <button type="button" className="primary" onClick={onOpenSpec}>Open spec sheet</button>
         </div>
@@ -149,9 +153,14 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
         {r.provenOptimal ? (
           <p className="ok-line">✓ Proven optimal: {r.perLayer} per layer is the most this footprint can fit.</p>
         ) : (
-          <p className="muted small">Best found: {r.perLayer} per layer. The theoretical maximum is {r.upperBound}; it may not be reachable.</p>
+          r.direction === 'mixed' && <p className="muted small">Best found: {r.perLayer} per layer. The theoretical maximum is {r.upperBound}; it may not be reachable.</p>
         )}
-        {r.notes.map((n) => <p key={n} className="note small">{n}</p>)}
+        {r.notes.length > 0 && (
+          <div className="notes-toggle">
+            <Check label={`Show optimization notes (${r.notes.length})`} checked={showNotes} onChange={onShowNotes} />
+          </div>
+        )}
+        {showNotes && r.notes.map((n) => <p key={n} className="note small">{n}</p>)}
       </section>
     </div>
   );

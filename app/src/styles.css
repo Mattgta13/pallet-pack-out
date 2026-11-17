@@ -250,3 +250,5 @@ table.lib .actions .link + .link { margin-left: 10px; }
   .page { box-shadow: none; margin: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+.notes-toggle { margin-top: 10px; font-size: 13px; }

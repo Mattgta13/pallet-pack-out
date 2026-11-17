@@ -1,4 +1,4 @@
-import type { Flute, Pallet, StackingStyle } from '@packout/engine';
+import type { Direction, Flute, Pallet, StackingStyle } from '@packout/engine';
 import type { Job } from '../job';
 import { sheetThickness, sheetUnitWeight } from '../job';
 import { fmtLen, fmtWt, lenUnit, type UnitSystem } from '../units';
@@ -15,6 +15,7 @@ interface Props {
 
 export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props) {
   const isSheet = job.productType === 'sheet';
+  const pallet = pallets.find((p) => p.id === job.palletId) ?? pallets[0];
   const flute = flutes.find((f) => f.id === job.fluteId);
   const fluteOptions = flutes.map((f) => ({
     value: f.id,
@@ -126,6 +127,17 @@ export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props
             { value: 'column', label: 'All layers same' },
             { value: 'interlock', label: 'Patterned' },
           ]}
+        />
+        <SelectField<Direction>
+          label={isSheet ? 'Stack direction across the pallet' : 'Case direction across the pallet'}
+          value={job.direction}
+          onChange={(v) => set('direction', v)}
+          options={[
+            { value: 'mixed', label: 'Best fit (directions can mix)' },
+            { value: 'lengthwise', label: `All lengthwise: ${fmtLen(job.length, units, 1)} along the pallet's ${fmtLen(pallet?.length ?? 0, units, 0)} ${lenUnit(units)} side` },
+            { value: 'crosswise', label: `All crosswise: ${fmtLen(job.width, units, 1)} along the pallet's ${fmtLen(pallet?.length ?? 0, units, 0)} ${lenUnit(units)} side` },
+          ]}
+          hint={job.direction === 'mixed' ? 'Turns some units 90° when that fits more' : 'Every unit in a layer faces the same way'}
         />
         {isSheet && job.stacking !== 'column' && (
           <NumField label="Sheets per lift" units={units} value={job.sheetsPerLift} onChange={(v) => set('sheetsPerLift', Math.max(1, Math.round(v ?? 1)))} hint="Each lift alternates its layout" />

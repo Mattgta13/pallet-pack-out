@@ -4,11 +4,13 @@ import type { Job } from '../job';
 import { Iso } from '../draw/Iso';
 import { LayerDiagram } from '../draw/LayerDiagram';
 import { loadScene, type Box3D } from '../draw/geometry';
-import { PATTERN_LABEL, stackingLabel } from '../describe';
+import { directionLabel, PATTERN_LABEL, stackingLabel } from '../describe';
 import { cubeUnit, fmtCube, fmtInt, fmtLen, fmtPct, fmtWt, lenUnit, wtUnit, type UnitSystem } from '../units';
 import { signed } from './Results';
 
 interface Props {
+  /** False hides the optimization note (the "best found" / direction-lock badge). */
+  showNotes?: boolean;
   job: Job;
   result: PackOutResult;
   pallet: Pallet;
@@ -17,7 +19,7 @@ interface Props {
 }
 
 /** One-page letter spec sheet. Printing this page (Save as PDF) gives the PDF. */
-export function SpecSheet({ job, result: r, pallet, flutes, units }: Props) {
+export function SpecSheet({ job, result: r, pallet, flutes, units, showNotes = true }: Props) {
   const isSheet = job.productType === 'sheet';
   const L = (v: number, dp?: number) => fmtLen(v, units, dp);
   const lu = lenUnit(units);
@@ -112,7 +114,7 @@ export function SpecSheet({ job, result: r, pallet, flutes, units }: Props) {
           </div>
         </div>
         <div className="panel">
-          <h2>{isSheet ? 'Stack pattern' : 'Layer pattern'} <span className="tag">{PATTERN_LABEL[r.pattern]} · {r.stacking === 'interlock' ? 'interlocked' : 'column'}</span></h2>
+          <h2>{isSheet ? 'Stack pattern' : 'Layer pattern'} <span className="tag">{PATTERN_LABEL[r.pattern]}{r.direction !== 'mixed' ? ` (${directionLabel(r)})` : ''} · {r.stacking === 'interlock' ? 'interlocked' : 'column'}</span></h2>
           <div className={r.stacking === 'interlock' ? 'layers two' : 'layers one'}>
             <div>
               <LayerDiagram layer={r.oddLayer} pallet={pallet} units={units} size={200} strapping={strapping} />
@@ -167,7 +169,7 @@ export function SpecSheet({ job, result: r, pallet, flutes, units }: Props) {
             <dt>Board</dt><dd>{isSheet ? sheetFlute ? `${sheetFlute.name}, ${L(r.unitH, 4)} ${lu} caliper` : `Custom, ${L(r.unitH, 4)} ${lu}` : caseFlute ? `${caseFlute.name}, ${L(caseFlute.caliper, 3)} ${lu} caliper` : 'Not specified'}</dd>
             <dt>Pallet</dt><dd>{pallet.name} · {L(pallet.length, 0)} × {L(pallet.width, 0)} × {L(pallet.deckHeight)} {lu} · {fmtWt(pallet.weight, units, 0)} {wu}</dd>
             <dt>Net load weight</dt><dd className="num">{fmtWt(r.netWeight, units)} {wu}</dd>
-            <dt>Stacking</dt><dd>{stackingLabel(r)}{isSheet && r.stacking === 'interlock' ? ` · ${job.sheetsPerLift} sheets per lift` : ''}</dd>
+            <dt>Stacking</dt><dd>{stackingLabel(r)}{r.direction !== 'mixed' ? ` · ${directionLabel(r)}` : ''}{isSheet && r.stacking === 'interlock' ? ` · ${job.sheetsPerLift} sheets per lift` : ''}</dd>
             <dt>Strapping</dt><dd>{job.strapping ? `${job.strapCount} strap${job.strapCount === 1 ? '' : 's'}, ${job.strapDirection}` : 'None'}</dd>
           </dl>
         </div>
@@ -199,7 +201,11 @@ export function SpecSheet({ job, result: r, pallet, flutes, units }: Props) {
           {r.provenOptimal ? (
             <div className="badge">Proven optimal: {r.perLayer} per {isSheet ? 'pallet footprint' : 'layer'} is the maximum possible</div>
           ) : (
-            <div className="badge warn">Best found: {r.perLayer} per layer (theoretical max {r.upperBound})</div>
+            showNotes && <div className="badge warn">
+              {r.direction === 'mixed'
+                ? `Best found: ${r.perLayer} per layer (theoretical max ${r.upperBound})`
+                : `${r.perLayer} per layer with all ${r.direction}; mixing directions could fit up to ${r.upperBound}`}
+            </div>
           )}
         </div>
       </section>
