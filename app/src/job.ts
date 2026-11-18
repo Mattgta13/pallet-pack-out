@@ -1,5 +1,6 @@
 /** The pack-out being edited. All lengths in inches, weights in pounds. */
 import { useEffect, useState } from 'react';
+import { blankOutline, type DieLine } from './dieline';
 import { sheetWeight, type Direction, type Flute, type PackOutInput, type Pallet, type StackingStyle } from '@packout/engine';
 
 export interface Job {
@@ -8,7 +9,6 @@ export interface Job {
   name: string;
   sku: string;
   specNo: string;
-  revision: string;
   preparedBy: string;
   notes: string;
   // case
@@ -23,6 +23,8 @@ export interface Job {
   fluteId: string;
   thicknessOverride: number | null;
   sheetWeightOverride: number | null;
+  /** Uploaded custom die line (drawn on the sheets; packing uses its bounding rectangle). */
+  dieLine: DieLine | null;
   // pallet + limits
   palletId: string;
   maxHeight: number;
@@ -37,14 +39,24 @@ export interface Job {
   strapping: boolean;
   strapCount: number;
   strapDirection: 'lengthwise' | 'widthwise' | 'both ways';
+  // truck load (spec sheet page 2)
+  truckPage: boolean;
+  trailerId: string;
+  /** Payload limit to use instead of the trailer's; null = the trailer's. */
+  truckPayload: number | null;
+  /** Stack pallets two high when the trailer height allows. */
+  truckDoubleStack: boolean;
+  /** Pallets may be loaded turned 90° across the trailer. */
+  truckTurn: boolean;
+  /** Pallets to ship, for the number of trucks; null = not given. */
+  orderPallets: number | null;
 }
 
 export const DEFAULT_JOB: Job = {
-  productType: 'case',
+  productType: 'sheet',
   name: 'Sample Shipper',
   sku: '',
   specNo: '',
-  revision: 'A',
   preparedBy: '',
   notes: '',
   length: 16.2,
@@ -57,6 +69,7 @@ export const DEFAULT_JOB: Job = {
   fluteId: 'C',
   thicknessOverride: null,
   sheetWeightOverride: null,
+  dieLine: null,
   palletId: 'gma-48x40-2way',
   maxHeight: 52,
   maxGross: 5000,
@@ -69,6 +82,12 @@ export const DEFAULT_JOB: Job = {
   strapping: false,
   strapCount: 2,
   strapDirection: 'lengthwise',
+  truckPage: false,
+  trailerId: 'van-53',
+  truckPayload: null,
+  truckDoubleStack: false,
+  truckTurn: true,
+  orderPallets: null,
 };
 
 const KEY = 'ppo.job.v1';
@@ -100,7 +119,8 @@ export function sheetThickness(job: Job, flute?: Flute) {
 
 export function sheetUnitWeight(job: Job, flute?: Flute) {
   if (job.sheetWeightOverride != null) return job.sheetWeightOverride;
-  return flute ? sheetWeight(job.length, job.width, flute) : 0;
+  // A shaped blank weighs only its die-cut area, not its bounding rectangle.
+  return flute ? sheetWeight(job.length, job.width, flute) * (job.dieLine?.areaFraction ?? 1) : 0;
 }
 
 /** Build the engine input, or an error message if the job is incomplete. */
@@ -148,6 +168,7 @@ export function toInput(job: Job, pallet: Pallet | undefined, flutes: Flute[]): 
       thickness: t,
       weight: sheetUnitWeight(job, flute),
       fluteId: flute?.id,
+      outline: job.dieLine ? blankOutline(job.dieLine, job.length, job.width) : undefined,
     },
     pallet,
     constraints,

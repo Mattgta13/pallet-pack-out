@@ -35,10 +35,7 @@ We use several algorithms, run all of them, and keep the best:
 1. **Block (column) pattern:** all cases in one orientation. `floor(L/l) × floor(W/w)`, tried both ways.
 2. **Two-block / split pattern:** one block of cases in one orientation plus a strip of rotated cases. Every split point is tried.
 3. **Recursive partitioning, published "5-block" / G4 heuristics** (Lins, Lins & Morabito; Scheithauer & Terno; Birgin et al.). These split the pallet into rectangles recursively, cover pinwheel and interlock patterns, and are proven optimal or near-optimal on standard benchmark sets.
-4. **Upper bound check:**
-   - Area bound: `floor(LW / lw)`.
-   - Barnes bound.
-   - When our best result equals the upper bound, the sheet says **"Proven optimal."** When it doesn't, the sheet shows the gap. Commercial tools don't show this.
+4. **Results are the actual best found.** The sheet reports what the search found ("Best found: N per layer"), with no theoretical maximum. Upper bounds are used only inside the test suite to check the solver. The "Best found" comment can be hidden.
 
 All dimensions are normalized to their usable integer combinations (raster points) so that the search runs exactly, without floating-point error.
 
@@ -127,7 +124,7 @@ Pallets per 53' trailer, 40' and 20' container. Covers floor-loaded vs. double-s
    - Layer pattern diagram(s), plus odd/even layers when interlocked.
    - 3D isometric image of the full load.
    - Side elevation with dimensions.
-   - Efficiency: area %, cube %, "proven optimal" flag or optimality gap.
+   - Efficiency: area %, cube %, and the "best found" comment (can be hidden).
    - Compression result and trailer count (once phase 3 is done).
    - Notes and approval signature block.
 4. **Export:** PDF, plus CSV/Excel of the numbers.
@@ -153,7 +150,7 @@ Pallets per 53' trailer, 40' and 20' container. Covers floor-loaded vs. double-s
 **Phase 1: Engine and proof of accuracy**
 - Orientation handling.
 - Block, two-block and recursive-partition algorithms.
-- Upper bounds.
+- Upper bounds (test suite only, to check the solver).
 - Layer stacking with height and weight limits.
 - Test suite against published benchmark instances (the Cover I/II pallet loading sets, with known optimal answers) **and against your real CAPE/TOPS outputs**. Target: match or beat them on every case.
 
@@ -256,7 +253,7 @@ Every number on that sheet has been worked back out to check the math:
 - **Pattern diagram that can actually be built from:** a flat top-down view of each layer with numbered cases, dimensions and fork-entry arrows. TOPS shows the pattern only in 3D, which is hard for a pallet builder to follow.
 - **Big headline numbers:** cases/layer × layers = cases/pallet, plus total units, in large type at the top.
 - **Limits panel:** height and weight used against the 52" and 5,000 lb limits, overhang per side, and what controlled the layer count.
-- **Clear definitions:** efficiencies are labeled with exactly what they measure, plus the proven-optimal flag.
+- **Clear definitions:** efficiencies are labeled with exactly what they measure.
 - **Inputs a pallet builder needs:** product name, SKU, spec #, revision, prepared and approved lines. TOPS shows only "Untitled."
 - **Modern look:** clean type, a color-blind-safe two-tone case palette, vector drawings that print sharply, letter or A4.
 
@@ -269,7 +266,7 @@ Every number on that sheet has been worked back out to check the math:
 | Pallet data | Pallet name, L × W × deck height, empty pallet weight, entry type (2-way), fork-entry faces marked |
 | Pack-out summary (large print) | **Ti × Hi = cases per pallet** (e.g. 10 × 6 = 60), total units, overall load L × W × H, net load weight, gross weight incl. pallet |
 | Limits check | Height used / 52" max, weight used / 5,000 lb max, which limit decided the layer count, overhang and underhang per side |
-| Efficiency | Area utilization %, cube utilization %, **proven-optimal flag or gap to the upper bound**, pattern type (block, two-block, pinwheel, etc.) |
+| Efficiency | Area utilization %, cube utilization %, the best-found count (can be hidden), pattern type (block, two-block, pinwheel, etc.) |
 | Diagrams | Top view of the layer pattern, with cases numbered, rotated cases shaded and fork entry marked. Odd and even layers if interlocked. Side elevations (length and width faces) with dimensions. 3D isometric of the full load |
 | Stacking | Column or interlock; compression check (Phase 4) |
 | Notes / approval | Free-text notes, plus Prepared / Approved signature and date lines |

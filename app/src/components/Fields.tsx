@@ -138,3 +138,32 @@ export function Segmented<T extends string>({ value, onChange, options, ariaLabe
     </div>
   );
 }
+
+/**
+ * A button that asks for a second click instead of a browser confirm() pop-up
+ * (pop-ups are blocked in some browsers and app panes, which silently cancels).
+ */
+export function ConfirmButton({ label, confirmLabel, onConfirm, className = 'ghost', title }: { label: string; confirmLabel: string; onConfirm: () => void; className?: string; title?: string }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <button
+      type="button"
+      className={armed ? `${className} confirm-armed` : className}
+      title={title}
+      onClick={() => {
+        if (armed) {
+          setArmed(false);
+          onConfirm();
+        } else setArmed(true);
+      }}
+      onBlur={() => setArmed(false)}
+    >
+      {armed ? confirmLabel : label}
+    </button>
+  );
+}

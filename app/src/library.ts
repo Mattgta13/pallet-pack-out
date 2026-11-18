@@ -1,12 +1,12 @@
 /**
- * Pallet and flute tables. For this single-user version they are kept in the
+ * Pallet, flute and trailer tables. For this single-user version they are kept in the
  * browser (localStorage), seeded from the engine's defaults. Phase 3 moves
  * them to a hosted database so they follow you to any computer.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { SEED_FLUTES, SEED_PALLETS, type Flute, type Pallet } from '@packout/engine';
+import { SEED_FLUTES, SEED_PALLETS, SEED_TRAILERS, type Flute, type Pallet, type Trailer } from '@packout/engine';
 
-const KEYS = { pallets: 'ppo.pallets.v1', flutes: 'ppo.flutes.v1' } as const;
+const KEYS = { pallets: 'ppo.pallets.v1', flutes: 'ppo.flutes.v1', trailers: 'ppo.trailers.v1' } as const;
 
 function load<T>(key: string, seed: T[]): T[] {
   try {
@@ -48,5 +48,6 @@ function useTable<T extends { id?: string }>(key: string, seed: T[]) {
 
 export const usePallets = () => useTable<Pallet>(KEYS.pallets, SEED_PALLETS);
 export const useFlutes = () => useTable<Flute>(KEYS.flutes, SEED_FLUTES);
+export const useTrailers = () => useTable<Trailer>(KEYS.trailers, SEED_TRAILERS);
 
 export const newId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;

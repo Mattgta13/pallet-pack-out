@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Pallet, PackOutResult } from '@packout/engine';
 import { Iso } from '../draw/Iso';
 import { LayerDiagram } from '../draw/LayerDiagram';
+import type { Shape } from '../dieline';
 import { loadScene, rotateScene, type Strapping } from '../draw/geometry';
 import { directionLabel, PATTERN_LABEL, resultKey, stackingLabel } from '../describe';
 import { Check } from './Fields';
@@ -23,10 +24,12 @@ interface Props {
   strapping: Strapping | null;
   /** Show the solver's optimization notes (also hides them on the spec sheet). */
   showNotes: boolean;
+  /** Custom die line for the drawings. */
+  shape: Shape | null;
   onShowNotes: (v: boolean) => void;
 }
 
-export function Results({ results, selected, onSelect, pallet, isSheet, units, maxHeight, maxGross, busy, error, ms, onOpenSpec, strapping, showNotes, onShowNotes }: Props) {
+export function Results({ results, selected, onSelect, pallet, isSheet, units, maxHeight, maxGross, busy, error, ms, onOpenSpec, strapping, showNotes, onShowNotes, shape }: Props) {
   const [turns, setTurns] = useState(0);
 
   if (error) return <div className="empty card"><b>Can't calculate yet.</b> {error}</div>;
@@ -57,7 +60,6 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
                 <th className="r">{isSheet ? 'Sheets/stack' : 'Layers'}</th>
                 <th className="r">Total {unitWord}</th>
                 <th className="r">Cube eff.</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -73,7 +75,6 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
                     <td className="r num">{isSheet ? x.sheetsPerStack : x.layers}</td>
                     <td className="r num"><b>{fmtInt(x.total)}</b>{x.total < best && <span className="delta"> −{fmtInt(best - x.total)}</span>}</td>
                     <td className="r num">{fmtPct(x.cubeEfficiency)}</td>
-                    <td>{x.provenOptimal && <span className="pill ok" title="No layer pattern can fit more of this footprint">Optimal</span>}</td>
                   </tr>
                 );
               })}
@@ -112,6 +113,7 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
           <div className="view3d">
             <Iso
               boxes={scene.boxes}
+            shape={shape}
               straps={scene.straps}
               sheetCaption={isSheet}
               width={420}
@@ -130,12 +132,12 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
           </div>
           <div className="layers">
             <div>
-              <LayerDiagram layer={r.oddLayer} pallet={pallet} units={units} strapping={strapping} />
+              <LayerDiagram layer={r.oddLayer} pallet={pallet} units={units} strapping={strapping} shape={shape} />
               <div className="cap">{r.stacking === 'interlock' ? (isSheet ? 'Odd lifts' : 'Odd layers') : isSheet ? 'Every stack' : 'Every layer'}</div>
             </div>
             {r.stacking === 'interlock' && (
               <div>
-                <LayerDiagram layer={r.evenLayer} pallet={pallet} units={units} strapping={strapping} />
+                <LayerDiagram layer={r.evenLayer} pallet={pallet} units={units} strapping={strapping} shape={shape} />
                 <div className="cap">{isSheet ? 'Even lifts' : 'Even layers'}</div>
               </div>
             )}
@@ -150,20 +152,25 @@ export function Results({ results, selected, onSelect, pallet, isSheet, units, m
           <Fact label="Overhang ends / sides" value={`${signed(r.overhang.ends, units)} / ${signed(r.overhang.sides, units)} ${lenUnit(units)}`} />
           <Fact label="Limited by" value={limitText(r)} />
         </div>
-        {r.provenOptimal ? (
-          <p className="ok-line">✓ Proven optimal: {r.perLayer} per layer is the most this footprint can fit.</p>
-        ) : (
-          r.direction === 'mixed' && <p className="muted small">Best found: {r.perLayer} per layer. The theoretical maximum is {r.upperBound}; it may not be reachable.</p>
-        )}
-        {r.notes.length > 0 && (
-          <div className="notes-toggle">
-            <Check label={`Show optimization notes (${r.notes.length})`} checked={showNotes} onChange={onShowNotes} />
-          </div>
-        )}
+        <div className="notes-toggle">
+          <Check label="Show optimization notes" checked={showNotes} onChange={onShowNotes} />
+        </div>
+        {showNotes && <p className="muted small">{bestFound(r, isSheet)}</p>}
         {showNotes && r.notes.map((n) => <p key={n} className="note small">{n}</p>)}
       </section>
     </div>
   );
+}
+
+/** The result is the most this search can fit: no direction lock is costing units. */
+export const isOptimized = (r: PackOutResult) => !r.mixedPerLayer;
+
+/** The optimization comment: the actual result of the search, nothing theoretical. */
+export function bestFound(r: PackOutResult, isSheet: boolean, stackWord = 'stacks'): string {
+  const per = isSheet ? `${stackWord} per pallet` : 'per layer';
+  // A locked direction that costs units is not the best found: say what it gives up.
+  if (r.mixedPerLayer) return `Not optimized: ${r.perLayer} ${per} with all ${r.direction}. Mixing directions would fit ${r.mixedPerLayer}.`;
+  return `Best found: ${r.perLayer} ${per}${r.pattern === 'nested' ? ', nesting the die-cut shapes' : ''}.`;
 }
 
 function Fact({ label, value, bar }: { label: string; value: string; bar?: number }) {

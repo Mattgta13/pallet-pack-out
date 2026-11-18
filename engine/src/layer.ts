@@ -29,6 +29,8 @@ export interface Placement {
   w: number;
   /** True when the box is turned 90° (its b side runs along X). */
   rot: boolean;
+  /** Die-cut shapes: quarter turns of the blank, clockwise seen from above (0–3). */
+  turn?: number;
 }
 
 export interface LayerSolution {

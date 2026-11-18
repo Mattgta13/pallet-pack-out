@@ -2,7 +2,7 @@
  * Full pallet pack-out: orientation × layer pattern × stacking × limits.
  */
 import { solveLayer, type LayerSolution, type Placement } from './layer';
-import { upperBound } from './bounds';
+import { nestLayer, polygonArea, shapeBridging, type NestLayout, type Pt } from './nest';
 import { toInt, toNum } from './units';
 import type {
   Box2D,
@@ -152,6 +152,7 @@ function toPattern(boxes: Placement[]): LayerPattern {
     l: toNum(p.l),
     w: toNum(p.w),
     rot: p.rot,
+    ...(p.turn != null ? { turn: p.turn } : {}),
   }));
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of boxes) {
@@ -211,6 +212,24 @@ function blockLayer(UL: number, UW: number, a: number, b: number, turned: boolea
   return { count: placements.length, placements, pattern: placements.length ? 'block' : 'empty', exhaustive: true };
 }
 
+/** A nested layout as integer placements, centred on the pallet as one group. */
+function centreNest(n: NestLayout, PL: number, PW: number): Placement[] {
+  const ps = n.placements.map((p) => ({ x: toInt(p.x), y: toInt(p.y), l: toInt(p.l), w: toInt(p.w), rot: p.turn % 2 === 1, turn: p.turn }));
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of ps) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x + p.l); maxY = Math.max(maxY, p.y + p.w); }
+  const dx = Math.round((PL - (maxX - minX)) / 2) - minX;
+  const dy = Math.round((PW - (maxY - minY)) / 2) - minY;
+  return ps.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+}
+
+/** The same layout turned 180° on the pallet. */
+const turnLayer180 = (ps: Placement[], PL: number, PW: number): Placement[] =>
+  ps.map((p) => ({ ...p, x: PL - p.x - p.l, y: PW - p.y - p.w, turn: ((p.turn ?? 0) + 2) % 4 }));
+
+const asNest = (ps: Placement[]) => ps.map((p) => ({ x: toNum(p.x), y: toNum(p.y), l: toNum(p.l), w: toNum(p.w), turn: p.turn ?? 0 }));
+
+const TURNS: Record<string, number[]> = { mixed: [0, 1, 2, 3], lengthwise: [0, 2], crosswise: [1, 3] };
+
 export function solvePackOut(input: PackOutInput): PackOutResult[] {
   const { product, pallet, constraints: c } = input;
   const PL = toInt(pallet.length);
@@ -230,23 +249,52 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
     const direction = c.direction ?? 'mixed';
     const best = solveLayer(UL, UW, o.a, o.b);
     const sol = direction === 'mixed' ? best : blockLayer(UL, UW, o.a, o.b, direction === 'crosswise');
-    if (sol.count === 0) continue;
-    const ub = upperBound(UL, UW, o.a, o.b);
+    if (sol.count === 0 && !(product.kind === 'sheet' && product.outline)) continue;
     const base = raw(sol.placements);
+
+    // Die-cut shapes: nest the real outlines and use that when it fits more than rectangles.
+    const outline = product.kind === 'sheet' && product.outline && product.outline.length >= 3 ? (product.outline as Pt[]) : null;
+    const shapeFrac = outline ? polygonArea(outline) : 1;
+    let nests: NestLayout[] = [];
+    let mixedNest = 0;
+    if (outline) {
+      const a = toNum(o.a), b = toNum(o.b);
+      nests = nestLayer(outline, a, b, toNum(UL), toNum(UW), { turns: TURNS[direction], keep: 4 });
+      if (direction !== 'mixed') mixedNest = nestLayer(outline, a, b, toNum(UL), toNum(UW), { turns: TURNS.mixed, keep: 1 })[0]?.count ?? 0;
+    }
+    const shaped = nests.length > 0 && nests[0].count > sol.count;
+    const topNests = shaped ? nests.filter((n) => n.count === nests[0].count) : [];
 
     const styles: ('column' | 'interlock')[] =
       c.stacking === 'auto' ? ['column', 'interlock'] : [c.stacking];
 
     for (const style of styles) {
       const notes: string[] = [];
-      if (!sol.exhaustive && sol.count < ub)
+      if (!shaped && !sol.exhaustive)
         notes.push('Very small unit for this pallet: pinwheel search was capped, so a slightly better layer may exist.');
-      if (direction !== 'mixed' && best.count > sol.count)
-        notes.push(`All units ${direction}: ${sol.count} per layer. Mixing directions would fit ${best.count}.`);
-      const odd = centre(base, PL, PW);
+      const count = shaped ? topNests[0].count : sol.count;
+      const mixedBest = Math.max(best.count, mixedNest);
+      // A locked direction that costs units is reported through mixedPerLayer.
+      if (shaped) notes.push(`Die-cut shapes nested (${topNests[0].kind}): ${count} per layer; as plain rectangles only ${sol.count} fit.`);
+      const odd = shaped ? centreNest(topNests[0], PL, PW) : centre(base, PL, PW);
       let even = odd;
       let br = 0;
-      if (style === 'interlock') {
+      if (style === 'interlock' && shaped) {
+        // Alternate lift: another layout with the same count, or this one turned 180°, whichever ties the stacks below best.
+        const a = toNum(o.a), b = toNum(o.b);
+        const lower = asNest(odd);
+        for (const n of topNests) {
+          const cn = centreNest(n, PL, PW);
+          for (const cand of [cn, turnLayer180(cn, PL, PW)]) {
+            const v = shapeBridging(outline!, a, b, lower, asNest(cand));
+            if (v > br + EPS) { br = v; even = cand; }
+          }
+        }
+        if (br === 0) {
+          if (c.stacking === 'auto') continue;
+          notes.push('No alternate layer with the same count bridges the seams below; stacked as column.');
+        }
+      } else if (style === 'interlock') {
         const t = direction === 'mixed' ? transposedLayer(UL, UW, o.a, o.b) : null;
         const others = t && t.length === sol.count ? [raw(t)] : [];
         const alt = bestAlternate(base, others, PL, PW);
@@ -261,7 +309,8 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
         }
       }
 
-      const perLayer = sol.count;
+      if (count === 0) continue;
+      const perLayer = count;
       let layers: number;
       let total: number;
       let stackedH: number;
@@ -308,7 +357,7 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
       }
       const loadL = maxX - minX;
       const loadW = maxY - minY;
-      const areaEff = (perLayer * o.a * o.b) / (PL * PW);
+      const areaEff = (perLayer * o.a * o.b * shapeFrac) / (PL * PW);
 
       results.push({
         orientation: o.name,
@@ -317,7 +366,7 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
         unitH: toNum(o.h),
         stacking: style === 'interlock' && br > 0 ? 'interlock' : 'column',
         direction,
-        pattern: sol.pattern,
+        pattern: shaped ? 'nested' : sol.pattern,
         perLayer,
         layers,
         sheetsPerStack,
@@ -338,8 +387,7 @@ export function solvePackOut(input: PackOutInput): PackOutResult[] {
         limitedBy,
         areaEfficiency: areaEff,
         cubeEfficiency: (areaEff * stackedH) / usableH,
-        upperBound: ub,
-        provenOptimal: perLayer >= ub,
+        mixedPerLayer: direction !== 'mixed' && mixedBest > count ? mixedBest : undefined,
         notes,
       });
     }

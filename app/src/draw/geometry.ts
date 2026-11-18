@@ -13,6 +13,10 @@ export interface Box3D {
   kind: BoxKind;
   /** Die-cut sheet stacks: thickness of one sheet, so the drawing can show sheet lines. */
   sheetH?: number;
+  /** Die-cut shapes: quarter turns of the blank as placed by the solver. */
+  turn?: number;
+  /** Quarter turns applied by rotating the view (keeps a custom die line facing the right way). */
+  q?: number;
 }
 
 /** A strap lying in a vertical plane: along X at y = at, or along Y at x = at. */
@@ -226,7 +230,7 @@ export function rotateScene(scene: Scene, turns: number): Scene {
   let { boxes, straps, L, W } = scene;
   for (let t = 0; t < ((turns % 4) + 4) % 4; t++) {
     const w0 = W;
-    boxes = boxes.map((b) => ({ ...b, x: w0 - (b.y + b.w), y: b.x, l: b.w, w: b.l }));
+    boxes = boxes.map((b) => ({ ...b, x: w0 - (b.y + b.w), y: b.x, l: b.w, w: b.l, q: (b.q ?? 0) + 1 }));
     // (x, y) → (W − y, x): a strap along X at y=c becomes along Y at x = W − c, and vice versa.
     straps = straps.map((s) => (s.axis === 'x' ? { axis: 'y', at: w0 - s.at } : { axis: 'x', at: s.at }));
     [L, W] = [W, L];
@@ -246,17 +250,21 @@ export function paintOrder(boxes: Box3D[]): Box3D[] {
   for (const k of [...byZ.keys()].sort((a, b) => a - b)) {
     const rest = byZ.get(k)!.slice();
     while (rest.length) {
-      // a box with nothing behind it (smaller x or y, overlapping in the other axis)
-      const i = rest.findIndex(
-        (a) =>
-          !rest.some(
-            (b) =>
-              b !== a &&
-              ((b.x + b.l <= a.x + 1e-9 && b.y < a.y + a.w && a.y < b.y + b.w) ||
-                (b.y + b.w <= a.y + 1e-9 && b.x < a.x + a.l && a.x < b.x + b.l) ||
-                (b.x + b.l <= a.x + 1e-9 && b.y + b.w <= a.y + 1e-9)),
-          ),
-      );
+      // A box with nothing behind it (smaller x or y, overlapping in the other axis). Nested
+      // shapes have overlapping footprints, so among those pick the one farthest back.
+      let i = -1;
+      let depth = Infinity;
+      rest.forEach((a, k) => {
+        const free = !rest.some(
+          (b) =>
+            b !== a &&
+            ((b.x + b.l <= a.x + 1e-9 && b.y < a.y + a.w && a.y < b.y + b.w) ||
+              (b.y + b.w <= a.y + 1e-9 && b.x < a.x + a.l && a.x < b.x + b.l) ||
+              (b.x + b.l <= a.x + 1e-9 && b.y + b.w <= a.y + 1e-9)),
+        );
+        const d = a.x + a.l / 2 + a.y + a.w / 2;
+        if (free && d < depth) { depth = d; i = k; }
+      });
       out.push(rest.splice(i < 0 ? 0 : i, 1)[0]);
     }
   }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   solveLayer,
-  upperBound,
   solvePackOut,
   insideDims,
   sheetWeight,
@@ -10,6 +9,8 @@ import {
   type Placement,
 } from '../src/index';
 import { exactMax } from './exact';
+// Bounds are not part of the program any more; the tests still use them to check the solver.
+import { upperBound } from '../src/bounds';
 
 function assertValid(L: number, W: number, ps: Placement[]) {
   for (const p of ps) {
@@ -60,7 +61,6 @@ describe('TOPS reference load', () => {
     expect(r.overhang.ends).toBeCloseTo(0.3, 6);
     expect(r.overhang.sides).toBeCloseTo(-0.5, 6);
     expect(r.pattern).toBe('two-block');
-    expect(r.provenOptimal).toBe(true);
     expect(r.stacking).toBe('interlock');
     expect(r.bridging).toBeGreaterThan(0);
     expect(r.limitedBy).toBe('height');
@@ -80,12 +80,11 @@ describe('TOPS reference load', () => {
     expect(d.height).toBeCloseTo(8.476, 2);
   });
 
-  it('fits 9 per layer (proven max) without the overhang', () => {
+  it('fits 9 per layer without the overhang', () => {
     const input = topsInput(52);
     input.constraints.overhangEnds = 0;
     const [r] = solvePackOut(input);
     expect(r.perLayer).toBe(9);
-    expect(r.provenOptimal).toBe(true);
     expect(r.overhang.ends).toBeLessThanOrEqual(0);
   });
 });
@@ -289,12 +288,14 @@ describe('die-cut sheets', () => {
     expect(len.direction).toBe('lengthwise');
     expect(len.pattern).toBe('block');
     expect(len.oddLayer.boxes.every((b) => !b.rot && b.l === 23 && b.w === 15)).toBe(true);
-    expect(len.notes.join(' ')).toMatch(/would fit 5/);
+    expect(len.mixedPerLayer).toBe(5);
+    expect(mixed.mixedPerLayer).toBeUndefined();
 
     // 15 along the 48" length: 3 × 1 = 3 stacks, all turned
     const cross = solvePackOut({ ...base, constraints: { ...base.constraints, direction: 'crosswise' } })[0];
     expect(cross.perLayer).toBe(3);
     expect(cross.oddLayer.boxes.every((b) => b.rot && b.l === 15 && b.w === 23)).toBe(true);
+    expect(cross.mixedPerLayer).toBe(5);
   });
 
   it('puts several stacks of a small blank side by side, interlocked by lift', () => {

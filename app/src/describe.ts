@@ -5,6 +5,7 @@ export const PATTERN_LABEL: Record<PackOutResult['pattern'], string> = {
   'two-block': 'Two-block',
   'multi-block': 'Multi-block',
   pinwheel: 'Pinwheel',
+  nested: 'Nested shapes',
   empty: '—',
 };
 

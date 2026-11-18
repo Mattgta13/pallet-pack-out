@@ -1,7 +1,9 @@
-import type { Direction, Flute, Pallet, StackingStyle } from '@packout/engine';
+import type { Direction, Flute, Pallet, StackingStyle, Trailer } from '@packout/engine';
 import type { Job } from '../job';
 import { sheetThickness, sheetUnitWeight } from '../job';
 import { fmtLen, fmtWt, lenUnit, type UnitSystem } from '../units';
+import { DieLineField } from './DieLineField';
+import type { LibraryTab } from './LibraryEditor';
 import { Check, NumField, SelectField, Segmented, TextField } from './Fields';
 
 interface Props {
@@ -10,13 +12,15 @@ interface Props {
   units: UnitSystem;
   pallets: Pallet[];
   flutes: Flute[];
-  onManage: (tab: 'pallets' | 'flutes') => void;
+  trailers: Trailer[];
+  onManage: (tab: LibraryTab) => void;
 }
 
-export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props) {
+export function InputPanel({ job, set, units, pallets, flutes, trailers, onManage }: Props) {
   const isSheet = job.productType === 'sheet';
   const pallet = pallets.find((p) => p.id === job.palletId) ?? pallets[0];
   const flute = flutes.find((f) => f.id === job.fluteId);
+  const trailer = trailers.find((t) => t.id === job.trailerId) ?? trailers[0];
   const fluteOptions = flutes.map((f) => ({
     value: f.id,
     label: `${f.name} — ${fmtLen(f.caliper, units, units === 'imperial' ? 4 : 1)} ${lenUnit(units)}`,
@@ -31,8 +35,8 @@ export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props
           value={job.productType}
           onChange={(v) => set('productType', v)}
           options={[
-            { value: 'case', label: 'Case' },
             { value: 'sheet', label: 'Die-cut sheet' },
+            { value: 'case', label: 'Case' },
           ]}
         />
         <div className="grid2">
@@ -72,12 +76,23 @@ export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props
                 placeholder={fmtWt(sheetUnitWeight({ ...job, sheetWeightOverride: null }, flute), units, 3)}
                 value={job.sheetWeightOverride}
                 onChange={(v) => set('sheetWeightOverride', v)}
-                hint={job.sheetWeightOverride == null ? 'Calculated from blank size × flute weight' : 'Manual value'}
+                hint={job.sheetWeightOverride != null ? 'Manual value' : job.dieLine ? 'Die-cut area × flute weight' : 'Calculated from blank size × flute weight'}
               />
             </div>
             <p className="muted small">
               Using {fmtLen(sheetThickness(job, flute), units, units === 'imperial' ? 4 : 2)} {lenUnit(units)} per sheet; sheets lie flat.
             </p>
+            <DieLineField
+              die={job.dieLine}
+              length={job.length}
+              width={job.width}
+              units={units}
+              onChange={(d) => set('dieLine', d)}
+              onSize={(l, w) => {
+                set('length', l);
+                set('width', w);
+              }}
+            />
           </>
         ) : (
           <>
@@ -164,13 +179,51 @@ export function InputPanel({ job, set, units, pallets, flutes, onManage }: Props
         <h3>Spec sheet details</h3>
         <div className="grid2">
           <TextField label="Spec #" value={job.specNo} onChange={(v) => set('specNo', v)} />
-          <TextField label="Revision" value={job.revision} onChange={(v) => set('revision', v)} />
+          <TextField label="Prepared by" value={job.preparedBy} onChange={(v) => set('preparedBy', v)} />
         </div>
-        <TextField label="Prepared by" value={job.preparedBy} onChange={(v) => set('preparedBy', v)} />
         <label className="field">
           <span className="field-label">Notes</span>
           <textarea rows={3} value={job.notes} onChange={(e) => set('notes', e.target.value)} />
         </label>
+      </section>
+
+      <section className="card">
+        <h3>Truck load</h3>
+        <Check label="Add truck pack-out page to the spec sheet" checked={job.truckPage} onChange={(v) => set('truckPage', v)} />
+        {job.truckPage && (
+          <>
+            <SelectField
+              label="Trailer"
+              value={trailer?.id ?? ''}
+              onChange={(v) => { set('trailerId', v); set('truckPayload', null); }}
+              options={trailers.map((t) => ({ value: t.id ?? t.name, label: t.name }))}
+              hint={<button type="button" className="link" onClick={() => onManage('trailers')}>Add or edit trailers</button>}
+            />
+            <div className="grid2">
+              <NumField
+                label="Max payload"
+                kind="wt"
+                units={units}
+                allowBlank
+                placeholder={trailer ? fmtWt(trailer.maxPayload, units, 0) : ''}
+                value={job.truckPayload}
+                onChange={(v) => set('truckPayload', v)}
+                hint={job.truckPayload != null ? 'Manual value' : 'From the trailer table'}
+              />
+              <NumField
+                label="Pallets to ship"
+                units={units}
+                allowBlank
+                placeholder="Optional"
+                value={job.orderPallets}
+                onChange={(v) => set('orderPallets', v == null ? null : Math.max(1, Math.round(v)))}
+                hint="Gives the trucks needed"
+              />
+            </div>
+            <Check label="Pallets can be turned 90° in the trailer" checked={job.truckTurn} onChange={(v) => set('truckTurn', v)} />
+            <Check label="Double-stack pallets when the height allows" checked={job.truckDoubleStack} onChange={(v) => set('truckDoubleStack', v)} />
+          </>
+        )}
       </section>
     </div>
   );

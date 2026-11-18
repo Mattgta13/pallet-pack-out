@@ -13,6 +13,16 @@ export interface Pallet {
   entry: '2-way' | '4-way';
 }
 
+/** A trailer or container: inside dimensions (height = usable door height) and payload. */
+export interface Trailer {
+  id?: string;
+  name: string;
+  length: number;
+  width: number;
+  height: number;
+  maxPayload: number;
+}
+
 export interface Flute {
   id: string;
   name: string;
@@ -48,6 +58,9 @@ export interface SheetProduct {
   /** Weight of one sheet. */
   weight: number;
   fluteId?: string;
+  /** Custom die line: the blank's outer outline, normalised to the blank
+   *  (u along the length, v along the width, both 0–1). Shapes are nested on the pallet. */
+  outline?: [number, number][];
 }
 
 export type Product = CaseProduct | SheetProduct;
@@ -87,6 +100,8 @@ export interface Box2D {
   l: number;
   w: number;
   rot: boolean;
+  /** Die-cut shapes: quarter turns of the blank, clockwise seen from above (0–3). */
+  turn?: number;
 }
 
 export interface LayerPattern {
@@ -109,7 +124,7 @@ export interface PackOutResult {
   unitH: number;
   stacking: 'column' | 'interlock';
   direction: Direction;
-  pattern: 'block' | 'two-block' | 'multi-block' | 'pinwheel' | 'empty';
+  pattern: 'block' | 'two-block' | 'multi-block' | 'pinwheel' | 'nested' | 'empty';
   perLayer: number;
   /** Layers of cases; for sheets, lifts (column = 1 lift of the full stack). */
   layers: number;
@@ -131,8 +146,7 @@ export interface PackOutResult {
   areaEfficiency: number;
   /** Area efficiency × stacked height ÷ usable height. */
   cubeEfficiency: number;
-  /** Best possible per layer for this footprint. */
-  upperBound: number;
-  provenOptimal: boolean;
+  /** Direction locked and mixing directions would fit more: that actual count per layer. */
+  mixedPerLayer?: number;
   notes: string[];
 }

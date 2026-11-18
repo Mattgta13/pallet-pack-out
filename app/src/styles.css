@@ -23,6 +23,12 @@
   --wood-dark: #8c6845;
   --wood-deep: #6f5136;
   --wood-edge: #4f3a26;
+  --die-cut: #7a2e1d;
+  --die-crease: #2f5d8a;
+  --trailer-floor: #e9ecf0;
+  --trailer-wall: #f3f5f7;
+  --trailer-wall-2: #eceff3;
+  --trailer-edge: #9aa3af;
   --strap: #2a2f36;
   --strap-edge: #11151a;
   --ok: #2e7d4f;
@@ -148,7 +154,6 @@ svg .dim { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(-
 .fact .lbl { font-size: 11px; color: var(--ink-2); font-weight: 500; }
 .fact .bar { height: 5px; background: var(--rule); border-radius: 3px; overflow: hidden; }
 .fact .bar i { display: block; height: 100%; background: var(--accent); }
-.ok-line { color: var(--ok); font-weight: 600; margin: 12px 0 0; }
 .note { color: var(--warn); background: var(--warn-soft); padding: 6px 10px; border-radius: 6px; margin: 8px 0 0; }
 
 /* library dialog */
@@ -177,6 +182,9 @@ table.lib .actions .link + .link { margin-left: 10px; }
 }
 .sheet-head { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
 .sheet-head .brand { display: flex; align-items: center; gap: 12px; }
+.sheet-head .logo-img { height: 46px; max-width: 180px; object-fit: contain; flex: none; }
+.sheet-head button.logo { background: none; cursor: pointer; padding: 0; }
+.sheet-head button.logo:hover { border-color: var(--accent); color: var(--accent); }
 .sheet-head .logo { width: 46px; height: 46px; border: 1.5px dashed var(--ink-3); border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); font-size: 8px; text-align: center; line-height: 1.1; flex: none; }
 .doc-type { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
 .sheet-head h1 { margin: 2px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
@@ -191,7 +199,9 @@ table.lib .actions .link + .link { margin-left: 10px; }
 .s-headline .big { font-size: 22px; font-weight: 700; line-height: 1.15; margin-top: 2px; white-space: nowrap; }
 .s-headline .big.mid { font-size: 14px; margin-top: 8px; }
 .s-headline .big small { font-size: 10.5px; font-weight: 500; color: var(--ink-2); }
-.s-headline .tihi .big small { display: block; margin-top: 1px; }
+.s-headline .tihi .big .total { display: inline-flex; flex-direction: column; align-items: center; vertical-align: top; }
+/* Units under the total: same type as the box's label (Pack-out (columns × inserts)). */
+.s-headline .tihi .big small { display: block; margin-top: 3px; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 8.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; }
 .s-headline .tihi { background: var(--accent); color: #fff; }
 .s-headline .tihi .lbl, .s-headline .tihi .big small { color: #c9d9ea; }
 .s-headline .eq { font-weight: 400; opacity: .7; margin: 0 3px; }
@@ -245,10 +255,39 @@ table.lib .actions .link + .link { margin-left: 10px; }
 @media print {
   @page { size: letter; margin: 0; }
   body { background: #fff; }
-  .topbar, dialog { display: none !important; }
+  .topbar, dialog, .logo-error, .sheet-head button.logo { display: none !important; }
   .spec { padding: 0; }
   .page { box-shadow: none; margin: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 .notes-toggle { margin-top: 10px; font-size: 13px; }
+
+/* Die line upload */
+.die-field { margin-top: 10px; }
+.die-drop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; border: 1px dashed var(--rule); border-radius: 6px; background: var(--panel); }
+.die-card { display: flex; gap: 12px; align-items: flex-start; padding: 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
+.die-preview { width: 120px; height: 80px; flex: none; background: var(--surface); border-radius: 4px; }
+.die-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.die-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.die-unit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--ink-2); }
+.field .die-unit select { padding: 2px 4px; font-size: 12px; width: auto; }
+.die-actions { display: flex; gap: 12px; }
+.warn-text { color: var(--warn); }
+.logo-error { max-width: 8.5in; margin: 0 auto 10px; }
+.confirm-armed { border-color: var(--danger) !important; color: var(--danger) !important; background: #fdecea !important; }
+
+/* Truck load page */
+.page + .page { margin-top: 20px; }
+.s-headline.truck { grid-template-columns: 1.3fr 1.1fr 1fr 1.2fr; }
+.s-row.truck-views { grid-template-columns: 1.15fr 1fr; }
+.s-row.truck-data { grid-template-columns: 1fr 1fr; }
+.truck-plan text, .truck-side text { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.s-table td.best { background: var(--ok-soft); font-weight: 600; }
+.s-table tr.sel td { font-weight: 600; }
+.s-table td.l { text-align: left; }
+.truck-data .s-table th { white-space: nowrap; }
+.sheet-hint { margin: 6px 0 0; font-size: 8.5px; color: var(--ink-3); }
+@media print {
+  .page + .page { margin-top: 0; break-before: page; page-break-before: always; }
+}

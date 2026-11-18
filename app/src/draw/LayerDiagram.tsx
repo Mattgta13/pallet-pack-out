@@ -1,5 +1,6 @@
 import type { LayerPattern, Pallet } from '@packout/engine';
 import { fmtLen, type UnitSystem } from '../units';
+import { labelPoint, pathD, shapeInBox, type Shape } from '../dieline';
 import { strapSpan, strapsFor, topDeckBoards, type Strapping } from './geometry';
 
 interface Props {
@@ -8,12 +9,14 @@ interface Props {
   units: UnitSystem;
   size?: number;
   strapping?: Strapping | null;
+  /** Custom die line drawn in each stack's footprint. */
+  shape?: Shape | null;
 }
 
 const STRAP_W = 0.75;
 
 /** Top-down layer diagram: deck boards, numbered units (turned units shaded), fork entry arrows and straps. */
-export function LayerDiagram({ layer, pallet, units, size = 220, strapping }: Props) {
+export function LayerDiagram({ layer, pallet, units, size = 220, strapping, shape }: Props) {
   const boxes = layer.boxes;
   let minX = 0, minY = 0, maxX = pallet.length, maxY = pallet.width;
   for (const b of boxes) {
@@ -33,6 +36,12 @@ export function LayerDiagram({ layer, pallet, units, size = 220, strapping }: Pr
   const my = Y(pallet.width / 2);
   const straps = strapsFor(boxes.map((b) => ({ ...b, z: 0, h: 1, kind: 'unit' as const })), strapping);
   const strapPx = Math.max(2.5, STRAP_W * s);
+  // Stack numbers: inside each shape (nested shapes' boxes overlap), else at the box centre.
+  const labelAt = (b: (typeof boxes)[number]): [number, number] => {
+    if (!shape) return [X(b.x) + (b.l * s) / 2, Y(b.y) + (b.w * s) / 2];
+    const [x, y] = labelPoint(shapeInBox(shape, b).outline);
+    return [X(x), Y(y)];
+  };
   const ax = X(minX) + (X(maxX) - X(minX)) * 0.12; // 4-way side arrows, clear of the labels
 
   return (
@@ -44,13 +53,26 @@ export function LayerDiagram({ layer, pallet, units, size = 220, strapping }: Pr
       ))}
       {boxes.map((b, i) => (
         <g key={i}>
-          <rect
-            x={X(b.x)} y={Y(b.y)} width={b.l * s} height={b.w * s}
-            fill={b.rot ? 'var(--rot)' : 'var(--kraft)'}
-            stroke={b.rot ? 'var(--rot-dark)' : 'var(--kraft-dark)'}
-          />
+          {shape ? (() => {
+            const sh = shapeInBox(shape, b);
+            const f = ([x, y]: [number, number]): [number, number] => [X(x), Y(y)];
+            return (
+              <>
+                <rect x={X(b.x)} y={Y(b.y)} width={b.l * s} height={b.w * s} fill="none" stroke={b.rot ? 'var(--rot-dark)' : 'var(--kraft-dark)'} strokeOpacity={0.5} strokeWidth={0.6} strokeDasharray="2 2" />
+                <path d={pathD([[...sh.outline, sh.outline[0]]], f)} fill={b.rot ? 'var(--rot)' : 'var(--kraft)'} stroke={b.rot ? 'var(--rot-dark)' : 'var(--kraft-dark)'} strokeLinejoin="round" />
+                {Math.min(b.l, b.w) * s > 24 && <path d={pathD(sh.cut, f)} fill="none" stroke="var(--die-cut)" strokeOpacity={0.7} strokeWidth={0.5} />}
+                {Math.min(b.l, b.w) * s > 24 && sh.crease.length > 0 && <path d={pathD(sh.crease, f)} fill="none" stroke="var(--die-crease)" strokeOpacity={0.8} strokeWidth={0.5} strokeDasharray="2 1.5" />}
+              </>
+            );
+          })() : (
+            <rect
+              x={X(b.x)} y={Y(b.y)} width={b.l * s} height={b.w * s}
+              fill={b.rot ? 'var(--rot)' : 'var(--kraft)'}
+              stroke={b.rot ? 'var(--rot-dark)' : 'var(--kraft-dark)'}
+            />
+          )}
           {boxes.length <= 80 && (
-            <text x={X(b.x) + (b.l * s) / 2} y={Y(b.y) + (b.w * s) / 2 + fontSize * 0.35} textAnchor="middle" fontSize={fontSize} fontWeight={600} fill="#1c2430">
+            <text x={labelAt(b)[0]} y={labelAt(b)[1] + fontSize * 0.35} textAnchor="middle" fontSize={fontSize} fontWeight={600} fill="#1c2430">
               {i + 1}
             </text>
           )}

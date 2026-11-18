@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLogo } from './logo';
 import { InputPanel } from './components/InputPanel';
 import { Results } from './components/Results';
 import { SpecSheet } from './components/SpecSheet';
-import { LibraryEditor } from './components/LibraryEditor';
-import { Segmented } from './components/Fields';
+import { LibraryEditor, type LibraryTab } from './components/LibraryEditor';
+import { TruckSheet } from './components/TruckSheet';
+import { ConfirmButton, Segmented } from './components/Fields';
 import { toInput, useJob } from './job';
-import { useFlutes, usePallets } from './library';
+import { useFlutes, usePallets, useTrailers } from './library';
 import { useSolver } from './useSolver';
 import { resultKey } from './describe';
 import type { UnitSystem } from './units';
@@ -17,6 +19,7 @@ export default function App() {
   const { job, set, reset } = useJob();
   const pallets = usePallets();
   const flutes = useFlutes();
+  const trailers = useTrailers();
   const [units, setUnits] = useState<UnitSystem>(() => {
     try {
       return (localStorage.getItem(UNITS_KEY) as UnitSystem) || 'imperial';
@@ -40,8 +43,11 @@ export default function App() {
     try { localStorage.setItem(NOTES_KEY, showNotes ? '1' : '0'); } catch { /* ignore */ }
   }, [showNotes]);
 
+  const logo = useLogo();
+  const logoInput = useRef<HTMLInputElement>(null);
+
   const [view, setView] = useState<'calc' | 'spec'>('calc');
-  const [library, setLibrary] = useState<null | 'pallets' | 'flutes'>(null);
+  const [library, setLibrary] = useState<null | LibraryTab>(null);
   const [selKey, setSelKey] = useState<string | null>(null);
 
   const pallet = pallets.rows.find((p) => p.id === job.palletId) ?? pallets.rows[0];
@@ -70,12 +76,15 @@ export default function App() {
           <Segmented ariaLabel="Units" value={units} onChange={setUnits} options={[{ value: 'imperial', label: 'in / lb' }, { value: 'metric', label: 'mm / kg' }]} />
           {view === 'calc' ? (
             <>
-              <button className="ghost" onClick={() => { if (confirm('Start a new pack-out? The current inputs will be cleared.')) reset(); }}>New</button>
+              <ConfirmButton label="New" confirmLabel="Clear all inputs?" title="Start a new pack-out; the current inputs will be cleared" onConfirm={reset} />
               <button className="primary" disabled={!selected} onClick={() => setView('spec')}>Spec sheet</button>
             </>
           ) : (
             <>
               <button className="ghost" onClick={() => setView('calc')}>← Back to calculator</button>
+              <input ref={logoInput} type="file" accept="image/*,.svg" hidden onChange={(e) => { logo.upload(e.target.files?.[0]); e.target.value = ''; }} />
+              <button className="ghost" onClick={() => logoInput.current?.click()}>{logo.logo ? 'Change logo' : 'Upload logo'}</button>
+              {logo.logo && <ConfirmButton label="Remove logo" confirmLabel="Click again to remove" title="Remove the logo from all spec sheets" onConfirm={logo.remove} />}
               <button className="primary" onClick={() => window.print()}>Print / Save PDF</button>
             </>
           )}
@@ -84,7 +93,7 @@ export default function App() {
 
       {view === 'calc' || !selected || !pallet ? (
         <main className="calc">
-          <InputPanel job={job} set={set} units={units} pallets={pallets.rows} flutes={flutes.rows} onManage={setLibrary} />
+          <InputPanel job={job} set={set} units={units} pallets={pallets.rows} flutes={flutes.rows} trailers={trailers.rows} onManage={setLibrary} />
           {pallet ? (
             <Results
               results={results}
@@ -102,6 +111,7 @@ export default function App() {
               strapping={job.strapping ? { count: job.strapCount, direction: job.strapDirection } : null}
               showNotes={showNotes}
               onShowNotes={setShowNotes}
+              shape={job.productType === 'sheet' && job.dieLine ? { die: job.dieLine, L: job.length, W: job.width } : null}
             />
           ) : (
             <div className="empty card">Add a pallet to get started.</div>
@@ -109,7 +119,9 @@ export default function App() {
         </main>
       ) : (
         <main className="spec">
-          <SpecSheet job={job} result={selected} pallet={pallet} flutes={flutes.rows} units={units} showNotes={showNotes} />
+          {logo.error && <p className="note logo-error" role="alert">{logo.error} <button type="button" className="link" onClick={logo.clearError}>Dismiss</button></p>}
+          <SpecSheet job={job} result={selected} pallet={pallet} flutes={flutes.rows} units={units} showNotes={showNotes} isBest={selected.total >= results[0].total} logo={logo.logo} onPickLogo={() => logoInput.current?.click()} pages={job.truckPage && trailers.rows.length ? 2 : 1} />
+          {job.truckPage && <TruckSheet job={job} result={selected} pallet={pallet} trailers={trailers.rows} units={units} showNotes={showNotes} logo={logo.logo} onPickLogo={() => logoInput.current?.click()} />}
         </main>
       )}
 
@@ -119,9 +131,10 @@ export default function App() {
           onTab={setLibrary}
           pallets={pallets}
           flutes={flutes}
+          trailers={trailers}
           units={units}
           onClose={() => setLibrary(null)}
-          inUse={{ palletId: job.palletId, fluteIds: [job.fluteId, job.caseFluteId].filter(Boolean) }}
+          inUse={{ palletId: job.palletId, fluteIds: [job.fluteId, job.caseFluteId].filter(Boolean), trailerId: job.trailerId }}
         />
       )}
     </div>

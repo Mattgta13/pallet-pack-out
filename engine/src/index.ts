@@ -1,7 +1,10 @@
 export * from './types';
 export { solveLayer, rasterPoints } from './layer';
 export type { Placement, LayerSolution } from './layer';
-export { areaBound, barnesBound, upperBound } from './bounds';
 export { solvePackOut, bridging } from './packout';
-export { SEED_PALLETS, SEED_FLUTES, sheetWeight, insideDims } from './data';
+export { SEED_PALLETS, SEED_FLUTES, SEED_TRAILERS, sheetWeight, insideDims } from './data';
 export { SCALE, toInt, toNum } from './units';
+export { nestLayer, shapeBridging, polygonsOverlap, polygonArea, turnedOutline } from './nest';
+export type { NestLayout, NestPlacement } from './nest';
+export { solveTruck } from './truck';
+export type { TruckPlan, TruckPosition, TruckRow, TruckUnit, TruckOptions, TruckLimit } from './truck';
