@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLogo } from './logo';
+import { exportData, importData } from './backup';
 import { InputPanel } from './components/InputPanel';
 import { Results } from './components/Results';
 import { SpecSheet } from './components/SpecSheet';
@@ -45,6 +46,7 @@ export default function App() {
 
   const logo = useLogo();
   const logoInput = useRef<HTMLInputElement>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
 
   const [view, setView] = useState<'calc' | 'spec'>('calc');
   const [library, setLibrary] = useState<null | LibraryTab>(null);
@@ -76,6 +78,9 @@ export default function App() {
           <Segmented ariaLabel="Units" value={units} onChange={setUnits} options={[{ value: 'imperial', label: 'in / lb' }, { value: 'metric', label: 'mm / kg' }]} />
           {view === 'calc' ? (
             <>
+              <input ref={backupInput} type="file" accept=".json,application/json" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { const err = await importData(f); if (err) alert(err); } }} />
+              <button className="ghost" onClick={exportData} title="Save your pallets, flutes, trailers, current job, logo and settings to a file, to use on another computer">Export data</button>
+              <ConfirmButton label="Import data" confirmLabel="Replace all data here?" title="Load a file saved with Export data; it replaces everything saved in this browser" onConfirm={() => backupInput.current?.click()} />
               <ConfirmButton label="New" confirmLabel="Clear all inputs?" title="Start a new pack-out; the current inputs will be cleared" onConfirm={reset} />
               <button className="primary" disabled={!selected} onClick={() => setView('spec')}>Spec sheet</button>
             </>
