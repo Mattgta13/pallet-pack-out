@@ -53,6 +53,10 @@ function spread(n: number, len: number, bw: number): number[] {
  *  - 2-way stringer pallet (GMA style): bottom deck boards across the width,
  *    three stringers along the length (forks enter at the X ends), top deck
  *    boards across the width.
+ *  - 4-way stringer pallet (GMA partial 4-way, the default for 4-way): the
+ *    same, but each stringer has two fork notches cut in its bottom edge, and
+ *    the bottom boards sit clear of the notches, so forks also enter from the
+ *    long sides.
  *  - 4-way block pallet: bottom boards along the length, 3 × 3 blocks,
  *    stringer boards along the length, top deck boards across the width.
  */
@@ -73,6 +77,22 @@ export function palletBoxes(p: Pallet): Box3D[] {
     const botN = Math.max(3, Math.round(L / 11));
     for (const x of spread(botN, L, topW)) box(x, 0, 0, topW, W, t, 'deck');
     for (const y of spread(runners, W, STRINGER_W)) box(0, y, t, L, STRINGER_W, H - 2 * t, 'stringer');
+  } else if (p.construction !== 'block') {
+    const sh = H - 2 * t; // stringer height
+    const nh = Math.min(1.5, sh * 0.4); // notch depth
+    const notches = fourWayNotches(L);
+    // Bottom boards at the ends and the middle, clear of the notches.
+    for (const x of [0, (L - topW) / 2, L - topW]) box(x, 0, 0, topW, W, t, 'deck');
+    for (const y of spread(runners, W, STRINGER_W)) {
+      // Each stringer in pieces: full height between the notches, shallower over them.
+      let x0 = 0;
+      for (const [a, b] of notches) {
+        box(x0, y, t, a - x0, STRINGER_W, sh, 'stringer');
+        box(a, y, t + nh, b - a, STRINGER_W, sh - nh, 'stringer');
+        x0 = b;
+      }
+      box(x0, y, t, L - x0, STRINGER_W, sh, 'stringer');
+    }
   } else {
     const bw = Math.min(BLOCK, W / 6);
     const ys = spread(runners, W, bw);
@@ -83,6 +103,12 @@ export function palletBoxes(p: Pallet): Box3D[] {
   }
   for (const x of spread(topN, L, topW)) box(x, 0, H - t, topW, W, t, 'deck');
   return out;
+}
+
+/** Fork notches along a 4-way stringer, as [start, end] pairs: about 9" wide, centred at ¼ and ¾ of its length. */
+export function fourWayNotches(L: number): [number, number][] {
+  const n = Math.min(9, L * 0.19);
+  return [L / 4, (3 * L) / 4].map((c) => [c - n / 2, c + n / 2]);
 }
 
 /** Top deck boards only, for the top-view diagrams. */
@@ -194,8 +220,9 @@ export function strapQuads(boxes: Box3D[], s: Strap, width: number, lift = 0.04)
   };
   for (const g of list) { add(g.face, g.z1); add(g.face, g.z0); }
   add(end, deckTop);
-  // Down the pallet to its bottom edge. Where the load overhangs, this angles back in.
-  if (Number.isFinite(palletFace)) add(palletFace, 0);
+  // Down the pallet's face to where it opens (a fork opening or notch, where the strap
+  // threads under the top deck) or to the floor. Where the load overhangs, this angles back in.
+  if (Number.isFinite(palletFace)) add(palletFace, faceBottom(pallet, s, along, deckTop));
   const pts = [...byZ.values()].sort((p, q) => q[1] - p[1]);
   const hull: [number, number][] = [];
   for (const p of pts) {
@@ -213,6 +240,20 @@ export function strapQuads(boxes: Box3D[], s: Strap, width: number, lift = 0.04)
     out.push([W(a0 + lift, -1, z0 + lift), W(a0 + lift, 1, z0 + lift), W(a1 + lift, 1, z1), W(a1 + lift, -1, z1)]);
   }
   return out;
+}
+
+/**
+ * How far down the pallet's face a strap runs: to the lowest part flush with the
+ * face under it (a bottom board or the stringer's foot). Over a fork notch, where
+ * nothing is below, it stops at the top of the notch and threads through it.
+ */
+function faceBottom(pallet: Box3D[], s: Strap, along: (b: Box3D) => number[], deckTop: number): number {
+  const face = Math.max(...pallet.map((b) => along(b)[1]));
+  const under = pallet.filter((b) => {
+    const [a0, a1] = s.axis === 'x' ? [b.y, b.y + b.w] : [b.x, b.x + b.l];
+    return along(b)[1] >= face - 0.5 && a0 <= s.at + 1e-9 && s.at - 1e-9 <= a1;
+  });
+  return under.length ? Math.min(deckTop, ...under.map((b) => b.z)) : deckTop;
 }
 
 /** Along-strap extent of a strap in the top view: over the units it crosses and out to the pallet edges. */

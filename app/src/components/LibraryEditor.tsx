@@ -63,7 +63,7 @@ function PalletTable({ t, units, inUse }: { t: Table<Pallet>; units: UnitSystem;
               <td>{p.name}</td>
               <td className="num">{show(p.length, units)} × {show(p.width, units)} × {show(p.deckHeight, units)}</td>
               <td className="num">{units === 'imperial' ? p.weight : (p.weight * 0.45359237).toFixed(1)}</td>
-              <td>{p.entry}</td>
+              <td>{p.entry}{p.entry === '4-way' ? (p.construction === 'block' ? ', block' : ', notched stringer') : ''}</td>
               <td className="actions">
                 <button className="link" onClick={() => setEditing({ ...p })}>Edit</button>
                 <button className="link danger" disabled={p.id === inUse || t.rows.length === 1} title={p.id === inUse ? 'In use by the current pack-out' : undefined} onClick={() => p.id && t.remove(p.id)}>Delete</button>
@@ -81,6 +81,9 @@ function PalletTable({ t, units, inUse }: { t: Table<Pallet>; units: UnitSystem;
             <NumField label="Deck height" kind="len" units={units} value={editing.deckHeight} onChange={(v) => setEditing({ ...editing, deckHeight: v ?? 0 })} />
             <NumField label="Pallet weight" kind="wt" units={units} value={editing.weight} onChange={(v) => setEditing({ ...editing, weight: v ?? 0 })} />
             <SelectField label="Entry" value={editing.entry} onChange={(v) => setEditing({ ...editing, entry: v })} options={[{ value: '2-way', label: '2-way' }, { value: '4-way', label: '4-way' }]} />
+            {editing.entry === '4-way' && (
+              <SelectField label="Construction" value={editing.construction ?? 'stringer'} onChange={(v) => setEditing({ ...editing, construction: v })} options={[{ value: 'stringer', label: 'Notched stringer (GMA)' }, { value: 'block', label: 'Block' }]} />
+            )}
           </div>
           <div className="row-actions">
             <button className="ghost" onClick={() => setEditing(null)}>Cancel</button>
@@ -90,7 +93,7 @@ function PalletTable({ t, units, inUse }: { t: Table<Pallet>; units: UnitSystem;
       ) : (
         <div className="row-actions">
           <ConfirmButton label="Restore defaults" confirmLabel="Remove custom pallets?" title="Restore the default pallet list; your custom pallets will be removed" onConfirm={t.reset} />
-          <button className="primary" onClick={() => setEditing({ id: newId('pallet'), name: '', length: 48, width: 40, deckHeight: 5.5, weight: 45, entry: '2-way' })}>Add pallet</button>
+          <button className="primary" onClick={() => setEditing({ id: newId('pallet'), name: '', length: 48, width: 40, deckHeight: 5.5, weight: 48, entry: '4-way', construction: 'stringer' })}>Add pallet</button>
         </div>
       )}
     </div>

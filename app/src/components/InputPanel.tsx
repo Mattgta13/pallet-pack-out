@@ -185,6 +185,7 @@ export function InputPanel({ job, set, units, pallets, flutes, trailers, onManag
           <span className="field-label">Notes</span>
           <textarea rows={3} value={job.notes} onChange={(e) => set('notes', e.target.value)} />
         </label>
+        <Check label="Large unit-load view only (hides layer patterns, dimensions and limits)" checked={job.singleView} onChange={(v) => set('singleView', v)} />
       </section>
 
       <section className="card">

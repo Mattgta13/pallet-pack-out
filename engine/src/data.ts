@@ -6,6 +6,7 @@
 import type { Flute, Pallet, Trailer } from './types';
 
 export const SEED_PALLETS: Pallet[] = [
+  { id: 'gma-48x40-4way', name: 'GMA 48 × 40 (4-way)', length: 48, width: 40, deckHeight: 5.5, weight: 48, entry: '4-way', construction: 'stringer' },
   { id: 'gma-48x40-2way', name: 'GMA 48 × 40 (2-way)', length: 48, width: 40, deckHeight: 5.5, weight: 45, entry: '2-way' },
 ];
 

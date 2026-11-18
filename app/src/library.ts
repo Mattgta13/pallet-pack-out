@@ -8,12 +8,23 @@ import { SEED_FLUTES, SEED_PALLETS, SEED_TRAILERS, type Flute, type Pallet, type
 
 const KEYS = { pallets: 'ppo.pallets.v1', flutes: 'ppo.flutes.v1', trailers: 'ppo.trailers.v1' } as const;
 
-function load<T>(key: string, seed: T[]): T[] {
+/**
+ * Stored rows, plus any default rows added since this browser last saw the
+ * defaults (a default the user deleted stays deleted). `legacy` lists the
+ * defaults that existed before this tracking began.
+ */
+function load<T extends { id?: string }>(key: string, seed: T[], legacy?: string[]): T[] {
   try {
     const raw = localStorage.getItem(key);
+    const seenRaw = localStorage.getItem(`${key}.seeds`);
     if (raw) {
       const v = JSON.parse(raw);
-      if (Array.isArray(v) && v.length) return v as T[];
+      if (Array.isArray(v) && v.length) {
+        const rows = v as T[];
+        const seen = new Set<string | undefined>(seenRaw ? JSON.parse(seenRaw) : legacy ?? seed.map((r) => r.id));
+        const added = seed.filter((r) => !seen.has(r.id) && !rows.some((x) => x.id === r.id));
+        return [...added.map((x) => ({ ...x })), ...rows];
+      }
     }
   } catch {
     /* storage blocked or corrupt: fall back to seed */
@@ -29,9 +40,13 @@ function save<T>(key: string, rows: T[]) {
   }
 }
 
-function useTable<T extends { id?: string }>(key: string, seed: T[]) {
-  const [rows, setRows] = useState<T[]>(() => load(key, seed));
-  useEffect(() => save(key, rows), [key, rows]);
+function useTable<T extends { id?: string }>(key: string, seed: T[], legacy?: string[]) {
+  const [rows, setRows] = useState<T[]>(() => load(key, seed, legacy));
+  useEffect(() => {
+    save(key, rows);
+    // Record which defaults this browser has seen, so later additions show up once.
+    save(`${key}.seeds`, seed.map((r) => r.id));
+  }, [key, rows, seed]);
   const upsert = useCallback((row: T) => {
     setRows((rs) => {
       const i = rs.findIndex((r) => r.id === row.id);
@@ -46,7 +61,7 @@ function useTable<T extends { id?: string }>(key: string, seed: T[]) {
   return { rows, upsert, remove, reset };
 }
 
-export const usePallets = () => useTable<Pallet>(KEYS.pallets, SEED_PALLETS);
+export const usePallets = () => useTable<Pallet>(KEYS.pallets, SEED_PALLETS, ['gma-48x40-2way']);
 export const useFlutes = () => useTable<Flute>(KEYS.flutes, SEED_FLUTES);
 export const useTrailers = () => useTable<Trailer>(KEYS.trailers, SEED_TRAILERS);
 

@@ -11,6 +11,8 @@ export interface Pallet {
   deckHeight: number;
   weight: number;
   entry: '2-way' | '4-way';
+  /** How a 4-way pallet is built: notched stringers (GMA style, the default) or blocks. */
+  construction?: 'stringer' | 'block';
 }
 
 /** A trailer or container: inside dimensions (height = usable door height) and payload. */

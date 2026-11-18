@@ -11,6 +11,8 @@ export interface Job {
   specNo: string;
   preparedBy: string;
   notes: string;
+  /** Page 1 shows one large unit-load view instead of the 3D view, layer patterns and case. */
+  singleView: boolean;
   // case
   length: number;
   width: number;
@@ -59,6 +61,7 @@ export const DEFAULT_JOB: Job = {
   specNo: '',
   preparedBy: '',
   notes: '',
+  singleView: false,
   length: 16.2,
   width: 11.4,
   height: 9.1,
@@ -70,7 +73,7 @@ export const DEFAULT_JOB: Job = {
   thicknessOverride: null,
   sheetWeightOverride: null,
   dieLine: null,
-  palletId: 'gma-48x40-2way',
+  palletId: 'gma-48x40-4way',
   maxHeight: 52,
   maxGross: 5000,
   maxLayers: null,

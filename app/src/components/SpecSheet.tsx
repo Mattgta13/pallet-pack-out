@@ -104,15 +104,16 @@ export function SpecSheet({ job, result: r, pallet, flutes, units, showNotes = t
         </div>
       </section>
 
-      <section className="s-row views">
+      <section className={job.singleView ? 's-row views single' : 's-row views'}>
         <div className="panel">
           <h2>Unit load <span className="tag">3D view · fork entry {pallet.entry === '2-way' ? `on ${L(pallet.width, 0)} ${lu} ends` : 'all sides'}</span></h2>
           <Iso
             boxes={scene.boxes}
             shape={shape}
             straps={scene.straps}
-            width={400}
-            height={320}
+            width={job.singleView ? 760 : 400}
+            height={job.singleView ? 650 : 320}
+            pad={job.singleView ? 18 : undefined}
             edgeWidth={r.oddLayer.count > 60 ? 0.3 : 0.7}
             labels={[
               { at: [pallet.length / 2, pallet.width, 0], text: L(r.load.length), dx: -14, dy: 18 },
@@ -127,6 +128,8 @@ export function SpecSheet({ job, result: r, pallet, flutes, units, showNotes = t
             {strapping && <span><i className="sw" style={{ background: 'var(--strap)' }} />Strap</span>}
           </div>
         </div>
+        {!job.singleView && (
+          <>
         <div className="panel">
           <h2>{isSheet ? 'Column pattern' : 'Layer pattern'} <span className="tag">{PATTERN_LABEL[r.pattern]}{r.direction !== 'mixed' ? ` (${directionLabel(r)})` : ''} · {r.stacking === 'interlock' ? 'interlocked' : 'column'}</span></h2>
           <div className={r.stacking === 'interlock' ? 'layers two' : 'layers one'}>
@@ -156,8 +159,11 @@ export function SpecSheet({ job, result: r, pallet, flutes, units, showNotes = t
             </div>
           </div>
         </div>
+          </>
+        )}
       </section>
 
+      {!job.singleView && (
       <section className="s-row data">
         <div className="panel">
           <h2>Dimensions &amp; weights</h2>
@@ -216,6 +222,7 @@ export function SpecSheet({ job, result: r, pallet, flutes, units, showNotes = t
           {showNotes && <div className={isBest && isOptimized(r) ? 'badge' : 'badge warn'}>{bestFound(r, isSheet, 'columns')}</div>}
         </div>
       </section>
+      )}
 
       <section className="s-row foot">
         <div className="panel">
